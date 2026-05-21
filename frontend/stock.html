@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Phân Tích Cổ Phiếu – StockVN</title>
+  <meta name="description" content="Phân tích kỹ thuật chi tiết cổ phiếu với biểu đồ nến, RSI, MACD, Bollinger Bands và AI."/>
+  <link rel="stylesheet" href="css/style.css"/>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+
+  <!-- PWA & Mobile First -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+</head>
+<body>
+
+<header class="header">
+  <a href="index.html" class="logo">
+    <div class="logo-icon"><svg width="18" height="18" viewBox="0 0 24 24" stroke="white" fill="none" stroke-width="2.5"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div>
+    <div>
+      <div class="logo-text">StockVN</div>
+      <div class="logo-sub">Phân tích thời gian thực</div>
+    </div>
+  </a>
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="searchInput" class="search-input" placeholder="Tìm mã CK..." autocomplete="off" />
+    <div class="search-dropdown" id="searchDropdown"></div>
+  </div>
+  <nav class="header-nav">
+    <a href="/" class="nav-link">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      Tổng Quan
+    </a>
+    <a href="/watchlist.html" class="nav-link">
+      <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      Theo Dõi
+    </a>
+    <a href="/portfolio.html" class="nav-link">
+      <svg viewBox="0 0 24 24"><path d="M21 12V7H5a2 2 0 010-4h14v4"/><path d="M3 5v14a2 2 0 002 2h16v-5"/><path d="M18 12a2 2 0 000 4h4v-4h-4z"/></svg>
+      Danh Mục
+    </a>
+    <a href="/scanner.html" class="nav-link">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Bộ Lọc
+    </a>
+    <div class="clock" id="clock">--:--:--</div>
+  </nav>
+</header>
+
+<main class="main">
+
+  <!-- Pro Quote Header -->
+  <div class="quote-pro" id="quoteHeader">
+    <div class="quote-main">
+      <div class="quote-symbol-wrap">
+        <div class="quote-symbol" id="symbolTitle">–</div>
+        <div class="quote-name" id="symbolName">Đang tải…</div>
+        <div class="quote-sub" id="symbolDate">–</div>
+      </div>
+      <div class="quote-price-wrap">
+        <div class="quote-price" id="stockPrice">–</div>
+        <div class="quote-change" id="stockChange">–</div>
+      </div>
+      <div class="quote-actions">
+        <div id="signalBadgeLarge"></div>
+        <button class="btn btn-primary" id="watchBtn" onclick="toggleWatch()">⭐ Theo Dõi</button>
+      </div>
+    </div>
+    <div class="quote-stats" id="quoteStats">
+      <div class="qs-item"><div class="qs-label">Mở cửa</div><div class="qs-value" id="qs-open">–</div></div>
+      <div class="qs-item"><div class="qs-label">Cao</div><div class="qs-value up" id="qs-high">–</div></div>
+      <div class="qs-item"><div class="qs-label">Thấp</div><div class="qs-value down" id="qs-low">–</div></div>
+      <div class="qs-item"><div class="qs-label">Tham chiếu</div><div class="qs-value" id="qs-ref">–</div></div>
+      <div class="qs-item"><div class="qs-label">Khối lượng</div><div class="qs-value" id="qs-vol">–</div></div>
+      <div class="qs-item"><div class="qs-label">Giá trị (tỷ)</div><div class="qs-value" id="qs-value">–</div></div>
+      <div class="qs-item"><div class="qs-label">Biên độ ngày</div><div class="qs-value" id="qs-range">–</div></div>
+      <div class="qs-item"><div class="qs-label">52T cao</div><div class="qs-value up" id="qs-52h">–</div></div>
+      <div class="qs-item"><div class="qs-label">52T thấp</div><div class="qs-value down" id="qs-52l">–</div></div>
+      <div class="qs-item"><div class="qs-label">KL TB 20</div><div class="qs-value" id="qs-avgvol">–</div></div>
+    </div>
+  </div>
+
+  <!-- Chart + Crosshair Info -->
+  <div class="chart-container">
+    <div class="crosshair-info" id="crosshairInfo">
+      <span class="ci-label">O</span><span class="ci-val" id="ci-o">–</span>
+      <span class="ci-label">H</span><span class="ci-val up" id="ci-h">–</span>
+      <span class="ci-label">L</span><span class="ci-val down" id="ci-l">–</span>
+      <span class="ci-label">C</span><span class="ci-val" id="ci-c">–</span>
+      <span class="ci-label">Δ</span><span class="ci-val" id="ci-chg">–</span>
+      <span class="ci-label">Vol</span><span class="ci-val" id="ci-vol">–</span>
+    </div>
+    <div class="chart-toolbar">
+      <span class="chart-group-label">Trong ngày:</span>
+      <button class="chart-btn intraday" onclick="setIntraday('1', 8, this)" title="1 phút – 8h gần nhất">1ph</button>
+      <button class="chart-btn intraday" onclick="setIntraday('5', 24, this)" title="5 phút – 24h">5ph</button>
+      <button class="chart-btn intraday" onclick="setIntraday('15', 72, this)" title="15 phút – 3 ngày">15ph</button>
+      <button class="chart-btn intraday" onclick="setIntraday('30', 168, this)" title="30 phút – 7 ngày">30ph</button>
+      <button class="chart-btn intraday" onclick="setIntraday('60', 336, this)" title="1 giờ – 14 ngày">1h</button>
+      <span class="chart-group-divider"></span>
+      <span class="chart-group-label">Hàng ngày:</span>
+      <button class="chart-btn" onclick="setRange(5, this)">1T</button>
+      <button class="chart-btn" onclick="setRange(22, this)">1Th</button>
+      <button class="chart-btn" onclick="setRange(60, this)">3Th</button>
+      <button class="chart-btn active" onclick="setRange(120, this)">6Th</button>
+      <button class="chart-btn" onclick="setRange(252, this)">1N</button>
+      <button class="chart-btn" onclick="setRange(504, this)">2N</button>
+      <button class="chart-btn" onclick="setRange(1260, this)">5N</button>
+      <button class="chart-btn" onclick="setRange(2520, this)">10N</button>
+      <button class="chart-btn" onclick="setRange(99999, this)">Tất cả</button>
+      <span class="chart-group-divider"></span>
+      <button class="chart-btn zoom-btn" onclick="zoomChart(0.7)" title="Phóng to (hoặc cuộn chuột)">🔍+</button>
+      <button class="chart-btn zoom-btn" onclick="zoomChart(1.4)" title="Thu nhỏ">🔍−</button>
+      <button class="chart-btn zoom-btn" onclick="zoomReset()" title="Khôi phục toàn bộ">⤺</button>
+      <div style="flex:1"></div>
+      <span style="font-size:11px;color:var(--txt2);align-self:center;opacity:.7">💡 Cuộn chuột để zoom • Kéo để pan • MA20 <span style="color:#3d9bff">●</span> MA50 <span style="color:#ffd32a">●</span> BB <span style="color:rgba(161,100,255,0.6)">●</span></span>
+    </div>
+    <div id="mainChart" style="height:420px;width:100%"></div>
+    <div class="chart-pane-label">Khối lượng</div>
+    <div id="volChart" style="height:90px;width:100%;margin-top:4px"></div>
+    <div class="chart-pane-label">RSI (14)</div>
+    <div id="rsiChart" style="height:100px;width:100%;margin-top:4px"></div>
+    <div class="chart-pane-label">MACD</div>
+    <div id="macdChart" style="height:100px;width:100%;margin-top:4px"></div>
+  </div>
+
+  <!-- Pro Fundamentals Grid -->
+  <div class="fund-grid" id="fundGrid">
+    <div class="fund-card">
+      <div class="fund-title">💰 Định Giá</div>
+      <div class="fund-row"><span>Vốn hoá</span><span class="fund-val" id="f-mcap">–</span></div>
+      <div class="fund-row"><span>P/E (trượt)</span><span class="fund-val" id="f-pe">–</span></div>
+      <div class="fund-row"><span>P/E (dự phóng)</span><span class="fund-val" id="f-pef">–</span></div>
+      <div class="fund-row"><span>P/B</span><span class="fund-val" id="f-pb">–</span></div>
+      <div class="fund-row"><span>EPS</span><span class="fund-val" id="f-eps">–</span></div>
+      <div class="fund-row"><span>Giá trị sổ sách</span><span class="fund-val" id="f-bv">–</span></div>
+    </div>
+    <div class="fund-card">
+      <div class="fund-title">📊 Hiệu Quả</div>
+      <div class="fund-row"><span>ROE</span><span class="fund-val" id="f-roe">–</span></div>
+      <div class="fund-row"><span>Biên LN ròng</span><span class="fund-val" id="f-margin">–</span></div>
+      <div class="fund-row"><span>Tăng trưởng DT</span><span class="fund-val" id="f-rgrowth">–</span></div>
+      <div class="fund-row"><span>Cổ tức TS</span><span class="fund-val" id="f-div">–</span></div>
+      <div class="fund-row"><span>Beta</span><span class="fund-val" id="f-beta">–</span></div>
+      <div class="fund-row"><span>Nợ/VCSH</span><span class="fund-val" id="f-de">–</span></div>
+    </div>
+    <div class="fund-card">
+      <div class="fund-title">🏭 Doanh Nghiệp</div>
+      <div class="fund-row"><span>Ngành</span><span class="fund-val" id="f-sector">–</span></div>
+      <div class="fund-row"><span>Lĩnh vực</span><span class="fund-val" id="f-industry">–</span></div>
+      <div class="fund-row"><span>CP lưu hành</span><span class="fund-val" id="f-shares">–</span></div>
+      <div class="fund-row"><span>Giá trị doanh nghiệp</span><span class="fund-val" id="f-ev">–</span></div>
+      <div class="fund-row"><span>52T cao</span><span class="fund-val up" id="f-52h">–</span></div>
+      <div class="fund-row"><span>52T thấp</span><span class="fund-val down" id="f-52l">–</span></div>
+    </div>
+  </div>
+
+  <!-- Deep Fundamentals Section -->
+  <div class="section-header" style="margin-top: 24px; margin-bottom: 12px;">
+    <div class="section-title">📊 Báo Cáo Tài Chính (4 Quý Gần Nhất)</div>
+  </div>
+  <div id="deepFundContent" style="width:100%; background:rgba(255,255,255,0.02); padding:16px; border-radius:12px; border:1px solid rgba(255,255,255,0.05); margin-bottom: 24px;">
+    <div style="font-size: 13px; color: var(--text-muted);">Đang tải dữ liệu báo cáo tài chính...</div>
+  </div>
+
+  <!-- News & Sentiment Section -->
+  <div class="section-header" style="margin-top: 24px; margin-bottom: 12px;">
+    <div class="section-title">📰 Tin Tức & Tâm Lý (AI Sentiment)</div>
+  </div>
+  <div id="newsContent" style="width:100%; background:rgba(255,255,255,0.02); padding:16px; border-radius:12px; border:1px solid rgba(255,255,255,0.05); margin-bottom: 24px;">
+    <div style="font-size: 13px; color: var(--text-muted);">Đang tải tin tức và phân tích AI...</div>
+  </div>
+
+  <!-- Indicators Panel -->
+  <div class="indicators-panel" id="indicatorsPanel">
+    <div class="ind-card"><div class="ind-card-label">RSI (14)</div><div class="ind-card-value" id="ind-rsi">–</div><div class="ind-card-note" id="ind-rsi-note">–</div></div>
+    <div class="ind-card"><div class="ind-card-label">MACD Signal</div><div class="ind-card-value" id="ind-macd">–</div><div class="ind-card-note" id="ind-macd-note">–</div></div>
+    <div class="ind-card"><div class="ind-card-label">Bollinger Band</div><div class="ind-card-value" id="ind-bb">–</div><div class="ind-card-note" id="ind-bb-note">–</div></div>
+    <div class="ind-card"><div class="ind-card-label">MA20 / MA50</div><div class="ind-card-value" id="ind-ma">–</div><div class="ind-card-note" id="ind-ma-note">–</div></div>
+    <div class="ind-card"><div class="ind-card-label">Khối lượng</div><div class="ind-card-value" id="ind-vol">–</div><div class="ind-card-note" id="ind-vol-note">–</div></div>
+    <div class="ind-card" style="background:linear-gradient(135deg,rgba(61,155,255,0.05),rgba(0,214,143,0.05));border-color:var(--border-active)">
+      <div class="ind-card-label">Tổng điểm</div>
+      <div class="ind-card-value" id="ind-score">–</div>
+      <div class="ind-card-note" id="ind-score-note">–</div>
+    </div>
+  </div>
+
+  <!-- AI Analysis Card -->
+  <div class="ai-card" id="aiCard">
+    <div class="ai-card-header">🤖 Phân Tích Bằng AI <span id="aiLoading" style="font-size:12px;color:var(--text-muted);font-weight:400">Đang tải…</span></div>
+    <div class="ai-card-body" id="aiBody">Đang phân tích với Trợ lý AI...</div>
+  </div>
+
+  <!-- Notes Panel -->
+  <div class="notes-panel">
+    <div class="notes-header">
+      <div class="notes-title">📝 Ghi Chú Cá Nhân – <span id="notesSymbol">–</span></div>
+      <span class="notes-count" id="notesCount">0 ghi chú</span>
+    </div>
+    <div class="notes-form">
+      <input type="date" id="noteDate" class="note-input note-date" title="Ngày ghi chú"/>
+      <select id="noteType" class="note-input note-type" title="Loại ghi chú">
+        <option value="info">💬 Ghi chú</option>
+        <option value="buy">🟢 Mua</option>
+        <option value="sell">🔴 Bán</option>
+        <option value="watch">👁 Theo dõi</option>
+        <option value="warning">⚠️ Cảnh báo</option>
+      </select>
+      <input type="text" id="noteText" class="note-input note-text" placeholder="Nội dung ghi chú (VD: vùng hỗ trợ mạnh, breakout, mua thử…)" maxlength="200"/>
+      <button class="note-add-btn" onclick="addNote()">+ Thêm</button>
+    </div>
+    <div id="notesList" class="notes-list"></div>
+  </div>
+
+  <!-- Signal Details -->
+  <div class="section-header">
+    <div class="section-title">📋 Chi Tiết Tín Hiệu</div>
+  </div>
+  <div id="signalsList" class="signals-list"></div>
+
+</main>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<div id="chatbotMount"></div>
+<script>
+fetch('/static/chatbot.html').then(r=>r.text()).then(html=>{
+  document.getElementById('chatbotMount').innerHTML=html;
+  document.querySelectorAll('#chatbotMount script').forEach(s=>{
+    const ns=document.createElement('script');ns.textContent=s.textContent;document.body.appendChild(ns);
+  });
+});
+</script>
+
+<script>
+const API = '/api';
+const params = new URLSearchParams(window.location.search);
+
+function cleanSymbol(s) {
+  const v = String(s ?? '').trim().toUpperCase();
+  return /^[A-Z0-9]{2,10}$/.test(v) ? v : '';
+}
+
+function getClientId() {
+  const key = 'stockvn_client_id';
+  let id = localStorage.getItem(key);
+  if (!/^web_[a-f0-9]{32}$/.test(id || '')) {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    id = 'web_' + Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+    localStorage.setItem(key, id);
+  }
+  return id;
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+const SYMBOL = cleanSymbol(params.get('symbol')) || 'VNM';
+const CHAT_ID = getClientId();
+
+let fullData = [];
+let mainChart, candleSeries, ma20Series, ma50Series, bbUpperSeries, bbLowerSeries;
+let volChart, volSeries;
+let rsiChart, rsiSeries;
+let macdChart, macdSeries;
+let currentBars = [];  // dữ liệu nến đang render – dùng cho crosshair tooltip
+
+document.getElementById('symbolTitle').textContent = SYMBOL;
+document.title = `${SYMBOL} – StockVN`;
+
+// Clock
+setInterval(() => { document.getElementById('clock').textContent = new Date().toLocaleTimeString('vi-VN'); }, 1000);
+document.getElementById('clock').textContent = new Date().toLocaleTimeString('vi-VN');
+
+// Toast
+function showToast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+function fmtPrice(p) { return Number(p).toLocaleString('vi-VN'); }
+function fmtPct(p) { return (p >= 0 ? '+' : '') + Number(p).toFixed(2) + '%'; }
+
+// ─── Charts ───────────────────────────────────────────────────────────────────
+const chartOpts = (height) => ({
+  width: document.getElementById('mainChart').offsetWidth,
+  height,
+  layout: { background: { color: 'transparent' }, textColor: '#8899b4' },
+  grid: { vertLines: { color: 'rgba(255,255,255,0.04)' }, horzLines: { color: 'rgba(255,255,255,0.04)' } },
+  crosshair: { mode: 1 },
+  rightPriceScale: { borderColor: 'rgba(255,255,255,0.07)', autoScale: true, scaleMargins: { top: 0.08, bottom: 0.08 } },
+  timeScale: { borderColor: 'rgba(255,255,255,0.07)', timeVisible: true, rightOffset: 6, barSpacing: 8, minBarSpacing: 0.5 },
+  handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: true },
+  handleScale: { axisPressedMouseMove: { time: true, price: true }, mouseWheel: true, pinch: true },
+  kineticScroll: { mouse: false, touch: true },
+});
+
+function initCharts() {
+  mainChart = LightweightCharts.createChart(document.getElementById('mainChart'), chartOpts(400));
+  candleSeries = mainChart.addCandlestickSeries({ upColor: '#00d68f', downColor: '#ff4757', borderUpColor: '#00d68f', borderDownColor: '#ff4757', wickUpColor: '#00d68f', wickDownColor: '#ff4757' });
+  ma20Series = mainChart.addLineSeries({ color: '#3d9bff', lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false });
+  ma50Series = mainChart.addLineSeries({ color: '#ffd32a', lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false });
+  bbUpperSeries = mainChart.addLineSeries({ color: 'rgba(161,100,255,0.5)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, lineStyle: 2 });
+  bbLowerSeries = mainChart.addLineSeries({ color: 'rgba(161,100,255,0.5)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, lineStyle: 2 });
+
+  volChart = LightweightCharts.createChart(document.getElementById('volChart'), { ...chartOpts(90), timeScale: { visible: false } });
+  volSeries = volChart.addHistogramSeries({ priceLineVisible: false, priceFormat: { type: 'volume' } });
+
+  rsiChart = LightweightCharts.createChart(document.getElementById('rsiChart'), { ...chartOpts(100), timeScale: { visible: false } });
+  rsiSeries = rsiChart.addLineSeries({ color: '#a164ff', lineWidth: 2, priceLineVisible: false });
+  // RSI tham chiếu 30/70
+  rsiChart.addLineSeries({ color: 'rgba(248,81,73,.35)', lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
+  rsiChart.addLineSeries({ color: 'rgba(63,185,80,.35)', lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false });
+
+  macdChart = LightweightCharts.createChart(document.getElementById('macdChart'), chartOpts(100));
+  macdSeries = macdChart.addHistogramSeries({ color: '#3d9bff', priceLineVisible: false });
+
+  // Crosshair tooltip – cập nhật OHLC khi hover
+  mainChart.subscribeCrosshairMove(param => {
+    if (!param || !param.time || !param.seriesData) { resetCrosshairInfo(); return; }
+    const bar = currentBars.find(b => b.date === param.time);
+    if (!bar) { resetCrosshairInfo(); return; }
+    updateCrosshairInfo(bar);
+  });
+
+  // Sync time scales (kích hoạt sau khi tất cả series có data – tránh "Value is null")
+  // Subscription sẽ được attach trong renderCharts() sau setData().
+
+  window.addEventListener('resize', () => {
+    const w = document.getElementById('mainChart').offsetWidth;
+    mainChart.resize(w, 420); volChart.resize(w, 90); rsiChart.resize(w, 100); macdChart.resize(w, 100);
+  });
+}
+
+function resetCrosshairInfo() {
+  const last = currentBars[currentBars.length - 1];
+  if (!last) return;
+  updateCrosshairInfo(last);
+}
+
+function updateCrosshairInfo(b) {
+  const prev = currentBars[currentBars.indexOf(b) - 1] || b;
+  const chg = b.close - prev.close;
+  const chgPct = prev.close ? (chg / prev.close * 100) : 0;
+  document.getElementById('ci-o').textContent = fmtPrice(b.open);
+  document.getElementById('ci-h').textContent = fmtPrice(b.high);
+  document.getElementById('ci-l').textContent = fmtPrice(b.low);
+  document.getElementById('ci-c').textContent = fmtPrice(b.close);
+  const chgEl = document.getElementById('ci-chg');
+  chgEl.textContent = (chg >= 0 ? '+' : '') + fmtPrice(chg) + ' (' + fmtPct(chgPct) + ')';
+  chgEl.className = 'ci-val ' + (chg >= 0 ? 'up' : 'down');
+  document.getElementById('ci-vol').textContent = b.volume ? b.volume.toLocaleString('vi-VN') : '–';
+}
+
+function ema(arr, period) {
+  const k = 2 / (period + 1);
+  const result = [arr[0]];
+  for (let i = 1; i < arr.length; i++) result.push(arr[i] * k + result[i - 1] * (1 - k));
+  return result;
+}
+
+function renderCharts(rawData) {
+  currentBars = rawData;
+  const candles = rawData.map(d => ({ time: d.date, open: d.open / 1000, high: d.high / 1000, low: d.low / 1000, close: d.close / 1000 }));
+  candleSeries.setData(candles);
+
+  // Volume histogram – màu theo nến (xanh nếu close >= open)
+  const volData = rawData.map((d, i) => {
+    const prev = rawData[i - 1] || d;
+    return { time: d.date, value: d.volume, color: d.close >= prev.close ? 'rgba(0,214,143,0.55)' : 'rgba(255,71,87,0.55)' };
+  });
+  volSeries.setData(volData);
+
+  const closes = rawData.map(d => d.close / 1000);
+  const times = rawData.map(d => d.date);
+
+  // MA20
+  const ma20 = ema(closes, 20);
+  ma20Series.setData(times.map((t, i) => ({ time: t, value: ma20[i] })));
+  const ma50 = ema(closes, 50);
+  ma50Series.setData(times.map((t, i) => ({ time: t, value: ma50[i] })));
+
+  // Bollinger Bands (period=20)
+  const bbUpper = [], bbLower = [];
+  for (let i = 19; i < closes.length; i++) {
+    const window = closes.slice(i - 19, i + 1);
+    const mean = window.reduce((a, b) => a + b) / 20;
+    const std = Math.sqrt(window.reduce((a, b) => a + (b - mean) ** 2, 0) / 20);
+    bbUpper.push({ time: times[i], value: mean + 2 * std });
+    bbLower.push({ time: times[i], value: mean - 2 * std });
+  }
+  bbUpperSeries.setData(bbUpper);
+  bbLowerSeries.setData(bbLower);
+
+  // RSI
+  const rsiData = [];
+  for (let i = 14; i < closes.length; i++) {
+    const window = closes.slice(i - 14, i + 1);
+    let gains = 0, losses = 0;
+    for (let j = 1; j < window.length; j++) {
+      const d = window[j] - window[j - 1];
+      if (d > 0) gains += d; else losses -= d;
+    }
+    const rs = gains / (losses || 0.0001);
+    rsiData.push({ time: times[i], value: 100 - 100 / (1 + rs) });
+  }
+  rsiSeries.setData(rsiData);
+
+  // MACD histogram
+  const ema12 = ema(closes, 12), ema26 = ema(closes, 26);
+  const macdLine = ema12.map((v, i) => v - ema26[i]);
+  const signalLine = ema(macdLine.slice(25), 9);
+  const macdHist = signalLine.map((s, i) => {
+    const m = macdLine[25 + i];
+    return { time: times[25 + i], value: m - s, color: (m - s) >= 0 ? 'rgba(0,214,143,0.7)' : 'rgba(255,71,87,0.7)' };
+  });
+  macdSeries.setData(macdHist);
+
+  mainChart.timeScale().fitContent();
+  resetCrosshairInfo();
+
+  // Sync time scales – 2 chiều giữa main và các pane phụ (volume/RSI/MACD)
+  if (!mainChart._syncAttached) {
+    mainChart._syncAttached = true;
+    let syncing = false;
+    const charts = [mainChart, volChart, rsiChart, macdChart];
+    charts.forEach(src => {
+      src.timeScale().subscribeVisibleLogicalRangeChange(range => {
+        if (syncing || !range) return;
+        syncing = true;
+        charts.forEach(dst => {
+          if (dst !== src) {
+            try { dst.timeScale().setVisibleLogicalRange(range); } catch {}
+          }
+        });
+        syncing = false;
+      });
+    });
+  }
+}
+
+function setRange(days, btn) {
+  document.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (fullData.length === 0) return;
+  const slice = fullData.slice(-days);
+  renderCharts(slice);
+  renderChartMarkers();
+}
+
+function zoomChart(factor) {
+  if (!mainChart) return;
+  const range = mainChart.timeScale().getVisibleLogicalRange();
+  if (!range) return;
+  const center = (range.from + range.to) / 2;
+  const halfWidth = (range.to - range.from) * factor / 2;
+  mainChart.timeScale().setVisibleLogicalRange({
+    from: Math.max(0, center - halfWidth),
+    to: center + halfWidth,
+  });
+}
+
+function zoomReset() {
+  if (!mainChart) return;
+  mainChart.timeScale().fitContent();
+}
+
+async function setIntraday(resolution, hours, btn) {
+  document.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  showToast(`Đang tải nến ${resolution} phút…`, 'info');
+  try {
+    const res = await fetch(`${API}/stock/${SYMBOL}/intraday?resolution=${resolution}&hours=${hours}`);
+    const data = await res.json();
+    const bars = data.raw_data || [];
+    if (!bars.length) {
+      showToast('Không có nến intraday (ngoài giờ giao dịch?)', 'error');
+      return;
+    }
+    renderCharts(bars);
+    // markers (YYYY-MM-DD) không hiển thị trên timestamp axis – ẩn ở intraday mode
+    try { candleSeries.setMarkers([]); } catch {}
+  } catch (e) {
+    showToast('Lỗi tải intraday: ' + e.message, 'error');
+  }
+}
+
+// ─── Render Indicators ────────────────────────────────────────────────────────
+function renderIndicators(an) {
+  const ind = an.indicators || {};
+  const rsi = ind.rsi || 0;
+  const macd = ind.macd || {};
+  const bb = ind.bollinger || {};
+  const ma20 = ind.ma20 || 0;
+  const ma50 = ind.ma50 || 0;
+  const vol = ind.volume || {};
+
+  // RSI
+  const rsiEl = document.getElementById('ind-rsi');
+  rsiEl.textContent = rsi;
+  rsiEl.className = 'ind-card-value ' + (rsi < 30 ? 'buy' : rsi > 70 ? 'sell' : 'neutral');
+  document.getElementById('ind-rsi-note').textContent = rsi < 30 ? '🟢 Quá bán – tín hiệu MUA' : rsi > 70 ? '🔴 Quá mua – tín hiệu BÁN' : '⚪ Trung tính';
+
+  // MACD
+  document.getElementById('ind-macd').textContent = (macd.histogram || 0).toFixed(3);
+  document.getElementById('ind-macd').className = 'ind-card-value ' + (macd.histogram > 0 ? 'buy' : macd.histogram < 0 ? 'sell' : 'neutral');
+  document.getElementById('ind-macd-note').textContent = macd.cross === 'bullish' ? '🟢 Golden Cross – MUA' : macd.cross === 'bearish' ? '🔴 Death Cross – BÁN' : '⚪ Không có cross';
+
+  // BB
+  const bbPos = { above_upper: 'sell', below_lower: 'buy', upper_half: 'neutral', lower_half: 'neutral' };
+  const bbText = { above_upper: '🔴 Vượt BB trên', below_lower: '🟢 Dưới BB dưới', upper_half: '⚪ Nửa trên BB', lower_half: '⚪ Nửa dưới BB' };
+  document.getElementById('ind-bb').textContent = bb.position || '–';
+  document.getElementById('ind-bb').className = 'ind-card-value ' + (bbPos[bb.position] || 'neutral');
+  document.getElementById('ind-bb-note').textContent = bbText[bb.position] || '–';
+
+  // MA
+  const maClass = ma20 > ma50 ? 'buy' : 'sell';
+  document.getElementById('ind-ma').textContent = ma20 > ma50 ? 'Golden ✅' : 'Death ❌';
+  document.getElementById('ind-ma').className = 'ind-card-value ' + maClass;
+  document.getElementById('ind-ma-note').textContent = `MA20: ${fmtPrice(ma20)} | MA50: ${fmtPrice(ma50)}`;
+
+  // Volume
+  const vRatio = vol.ratio || 1;
+  document.getElementById('ind-vol').textContent = vRatio.toFixed(1) + 'x';
+  document.getElementById('ind-vol').className = 'ind-card-value ' + (vol.signal === 'surge_up' ? 'buy' : vol.signal === 'surge_down' ? 'sell' : 'neutral');
+  document.getElementById('ind-vol-note').textContent = vol.signal === 'surge_up' ? '🟢 KL tăng + giá tăng' : vol.signal === 'surge_down' ? '🔴 KL tăng + giá giảm' : '⚪ Bình thường';
+
+  // Score
+  const score = an.score || 0;
+  const scoreEl = document.getElementById('ind-score');
+  scoreEl.textContent = `${score} / 8`;
+  scoreEl.className = 'ind-card-value ' + (score >= 4 ? 'buy' : score <= -4 ? 'sell' : 'neutral');
+  document.getElementById('ind-score-note').textContent = an.recommendation_vn || '–';
+}
+
+function renderSignals(signals) {
+  const container = document.getElementById('signalsList');
+  container.innerHTML = (signals || []).map(s => `
+    <div class="signal-item">
+      <div class="signal-dot ${s.signal}"></div>
+      <span>${s.note || ''}</span>
+    </div>`).join('');
+}
+
+function renderHeader(data, an) {
+  const price = data.last_price || 0;
+  const chg = an.price_info?.change_pct || 0;
+  const up = chg >= 0;
+  document.getElementById('stockPrice').textContent = fmtPrice(price);
+  const chgEl = document.getElementById('stockChange');
+  const absChg = price * chg / 100;
+  chgEl.textContent = (up ? '▲ ' : '▼ ') + (absChg >= 0 ? '+' : '') + fmtPrice(absChg) + ' (' + fmtPct(chg) + ')';
+  chgEl.className = 'quote-change ' + (up ? 'up' : 'down');
+  document.getElementById('symbolDate').textContent = `Cập nhật ${data.last_date || '–'}`;
+  document.title = `${SYMBOL} ${fmtPrice(price)} – StockVN`;
+
+  const rec = an.recommendation;
+  const cls = { BUY: 'buy', SELL: 'sell', HOLD: 'hold' }[rec];
+  const lbl = { BUY: '🟢 NÊN MUA', SELL: '🔴 KHÔNG MUA', HOLD: '🟡 CÂN NHẮC' }[rec];
+  document.getElementById('signalBadgeLarge').innerHTML = `<div class="signal-badge ${cls}" style="font-size:13px;padding:7px 14px">${lbl}</div>`;
+
+  // Quote stats (lấy từ raw_data – nến gần nhất + 20 phiên)
+  const bars = data.raw_data || [];
+  if (bars.length) {
+    const last = bars[bars.length - 1];
+    const prev = bars[bars.length - 2] || last;
+    document.getElementById('qs-open').textContent = fmtPrice(last.open);
+    document.getElementById('qs-high').textContent = fmtPrice(last.high);
+    document.getElementById('qs-low').textContent = fmtPrice(last.low);
+    document.getElementById('qs-ref').textContent = fmtPrice(prev.close);
+    document.getElementById('qs-vol').textContent = (last.volume || 0).toLocaleString('vi-VN');
+    document.getElementById('qs-value').textContent = (last.volume * last.close / 1e9).toFixed(2);
+    document.getElementById('qs-range').textContent = fmtPrice(last.low) + ' – ' + fmtPrice(last.high);
+    const recent = bars.slice(-252);
+    const h52 = Math.max(...recent.map(b => b.high));
+    const l52 = Math.min(...recent.map(b => b.low));
+    document.getElementById('qs-52h').textContent = fmtPrice(h52);
+    document.getElementById('qs-52l').textContent = fmtPrice(l52);
+    const avg20 = bars.slice(-20).reduce((s, b) => s + b.volume, 0) / 20;
+    document.getElementById('qs-avgvol').textContent = avg20.toLocaleString('vi-VN', { maximumFractionDigits: 0 });
+  }
+}
+
+function fmtBig(n) {
+  if (n == null || isNaN(n)) return '–';
+  const abs = Math.abs(n);
+  if (abs >= 1e12) return (n / 1e12).toFixed(2) + ' ngàn tỷ';
+  if (abs >= 1e9) return (n / 1e9).toFixed(2) + ' tỷ';
+  if (abs >= 1e6) return (n / 1e6).toFixed(2) + ' triệu';
+  return n.toLocaleString('vi-VN');
+}
+function fmtPctRaw(n) { return n == null || isNaN(n) ? '–' : (n * 100).toFixed(2) + '%'; }
+function fmtNum(n, d=2) { return n == null || isNaN(n) ? '–' : Number(n).toFixed(d); }
+
+function renderFundamentals(f) {
+  if (!f) return;
+  document.getElementById('symbolName').textContent = f.name || SYMBOL;
+  document.getElementById('f-mcap').textContent = fmtBig(f.market_cap);
+  document.getElementById('f-pe').textContent = fmtNum(f.pe_trailing);
+  document.getElementById('f-pef').textContent = fmtNum(f.pe_forward);
+  document.getElementById('f-pb').textContent = fmtNum(f.pb);
+  document.getElementById('f-eps').textContent = f.eps_trailing ? f.eps_trailing.toLocaleString('vi-VN') + ' đ' : '–';
+  document.getElementById('f-bv').textContent = f.book_value ? f.book_value.toLocaleString('vi-VN', { maximumFractionDigits: 0 }) + ' đ' : '–';
+  document.getElementById('f-roe').textContent = fmtPctRaw(f.roe);
+  document.getElementById('f-margin').textContent = fmtPctRaw(f.profit_margin);
+  document.getElementById('f-rgrowth').textContent = fmtPctRaw(f.revenue_growth);
+  document.getElementById('f-div').textContent = f.dividend_yield ? f.dividend_yield.toFixed(2) + '%' : '–';
+  document.getElementById('f-beta').textContent = fmtNum(f.beta);
+  document.getElementById('f-de').textContent = fmtNum(f.debt_to_equity);
+  document.getElementById('f-sector').textContent = f.sector || '–';
+  document.getElementById('f-industry').textContent = f.industry || '–';
+  document.getElementById('f-shares').textContent = fmtBig(f.shares_outstanding);
+  document.getElementById('f-ev').textContent = fmtBig(f.enterprise_value);
+  document.getElementById('f-52h').textContent = f.high_52w ? fmtPrice(f.high_52w) : '–';
+  document.getElementById('f-52l').textContent = f.low_52w ? fmtPrice(f.low_52w) : '–';
+}
+
+function renderDeepFundamentals(df) {
+  const container = document.getElementById('deepFundContent');
+  if (!df || (!df.income_statement.length && !df.balance_sheet.length)) {
+    container.innerHTML = '<div style="font-size: 13px; color: var(--text-muted);">Không có dữ liệu báo cáo tài chính cho mã này.</div>';
+    return;
+  }
+  
+  let html = '<div style="display:flex; flex-direction:column; gap:16px;">';
+  
+  // Báo Cáo Kết Quả Kinh Doanh
+  if (df.income_statement.length > 0) {
+    // Đảo ngược mảng để quý cũ nhất ở trước
+    const inc = [...df.income_statement].reverse();
+    html += '<div><h4 style="margin:0 0 8px 0; color:var(--text); font-size:14px;">📈 Kết Quả Kinh Doanh</h4>';
+    html += '<div style="overflow-x:auto;"><table style="width:100%; text-align:right; font-size:13px; border-collapse:collapse; min-width:400px;">';
+    html += '<thead><tr style="border-bottom:1px solid rgba(255,255,255,0.1); color:var(--text-muted);"><th style="text-align:left; padding:6px 0;">Kỳ Báo Cáo</th>';
+    inc.forEach(r => html += '<th style="padding:6px 0;">' + r.date + '</th>');
+    html += '</tr></thead><tbody>';
+    
+    html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.05);"><td style="text-align:left; padding:6px 0;">Doanh Thu</td>';
+    inc.forEach(r => html += '<td style="padding:6px 0;">' + fmtBig(r.revenue) + '</td>');
+    html += '</tr>';
+    
+    html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.05);"><td style="text-align:left; padding:6px 0;">Lợi Nhuận Gộp</td>';
+    inc.forEach(r => html += '<td style="padding:6px 0;">' + fmtBig(r.gross_profit) + '</td>');
+    html += '</tr>';
+    
+    html += '<tr><td style="text-align:left; padding:6px 0; color:#00d68f; font-weight:bold;">LN Sau Thuế</td>';
+    inc.forEach(r => html += '<td style="padding:6px 0; color:#00d68f; font-weight:bold;">' + fmtBig(r.net_income) + '</td>');
+    html += '</tr>';
+    
+    html += '</tbody></table></div></div>';
+  }
+  
+  // Bảng Cân Đối Kế Toán
+  if (df.balance_sheet.length > 0) {
+    const bal = [...df.balance_sheet].reverse();
+    html += '<div><h4 style="margin:0 0 8px 0; color:var(--text); font-size:14px;">⚖️ Bảng Cân Đối Kế Toán</h4>';
+    html += '<div style="overflow-x:auto;"><table style="width:100%; text-align:right; font-size:13px; border-collapse:collapse; min-width:400px;">';
+    html += '<thead><tr style="border-bottom:1px solid rgba(255,255,255,0.1); color:var(--text-muted);"><th style="text-align:left; padding:6px 0;">Kỳ Báo Cáo</th>';
+    bal.forEach(r => html += '<th style="padding:6px 0;">' + r.date + '</th>');
+    html += '</tr></thead><tbody>';
+    
+    html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.05);"><td style="text-align:left; padding:6px 0;">Tổng Tài Sản</td>';
+    bal.forEach(r => html += '<td style="padding:6px 0;">' + fmtBig(r.total_assets) + '</td>');
+    html += '</tr>';
+    
+    html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.05);"><td style="text-align:left; padding:6px 0;">Tổng Nợ</td>';
+    bal.forEach(r => html += '<td style="padding:6px 0;">' + fmtBig(r.total_liabilities) + '</td>');
+    html += '</tr>';
+    
+    html += '<tr><td style="text-align:left; padding:6px 0; color:#3d9bff; font-weight:bold;">Vốn Chủ Sở Hữu</td>';
+    bal.forEach(r => html += '<td style="padding:6px 0; color:#3d9bff; font-weight:bold;">' + fmtBig(r.total_equity) + '</td>');
+    html += '</tr>';
+    
+    html += '</tbody></table></div></div>';
+  }
+  
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function renderNews(ns) {
+  const container = document.getElementById('newsContent');
+  if (!ns || !ns.news || ns.news.length === 0) {
+    container.innerHTML = '<div style="font-size: 13px; color: var(--text-muted);">Không có tin tức mới nào.</div>';
+    return;
+  }
+  
+  let html = '<div style="display:flex; flex-direction:column; gap:16px;">';
+  
+  // AI Sentiment Box
+  if (ns.analysis) {
+    let aiText = ns.analysis;
+    aiText = renderAI(aiText);
+    // Highlight states
+    aiText = aiText.replace(/TÍCH CỰC/g, '<span style="color:#00d68f;font-weight:bold;">TÍCH CỰC 🟢</span>');
+    aiText = aiText.replace(/TIÊU CỰC/g, '<span style="color:#ff4757;font-weight:bold;">TIÊU CỰC 🔴</span>');
+    aiText = aiText.replace(/TRUNG LẬP/g, '<span style="color:#ffd32a;font-weight:bold;">TRUNG LẬP ⚪</span>');
+    
+    html += '<div style="background:rgba(61,155,255,0.1); border-left:4px solid #3d9bff; padding:12px; border-radius:8px; font-size:14px; line-height:1.5;">';
+    html += '<h4 style="margin:0 0 8px 0; color:var(--text);">🧠 AI Đánh Giá Tâm Lý:</h4>';
+    html += '<div>' + aiText + '</div>';
+    html += '</div>';
+  }
+  
+  // News List
+  html += '<div style="display:flex; flex-direction:column; gap:8px;">';
+  html += '<h4 style="margin:0 0 4px 0; color:var(--text); font-size:14px;">Mới nhất:</h4>';
+  ns.news.forEach(n => {
+    // Parse date if possible
+    let d = n.date;
+    try {
+      const dt = new Date(n.date);
+      if (!isNaN(dt)) {
+         d = dt.toLocaleString('vi-VN');
+      }
+    } catch(e){}
+    
+    html += `<a href="${n.link}" target="_blank" style="display:block; text-decoration:none; background:rgba(255,255,255,0.03); padding:10px; border-radius:8px; transition:background 0.2s;">
+      <div style="font-size:14px; color:#e2e8f0; margin-bottom:4px; font-weight:500;">${n.title}</div>
+      <div style="font-size:12px; color:#8899b4; display:flex; gap:8px;">
+        <span>🏢 ${n.source}</span>
+        <span>⏱ ${d}</span>
+      </div>
+    </a>`;
+  });
+  html += '</div>';
+  html += '</div>';
+  
+  container.innerHTML = html;
+}
+
+// ─── Watchlist ────────────────────────────────────────────────────────────────
+async function toggleWatch() {
+  const btn = document.getElementById('watchBtn');
+  try {
+    const check = await fetch(`${API}/watchlist/${CHAT_ID}`);
+    const wl = await check.json();
+    if ((wl.symbols || []).includes(SYMBOL)) {
+      await fetch(`${API}/watchlist/${CHAT_ID}/${SYMBOL}`, { method: 'DELETE' });
+      btn.textContent = '⭐ Thêm Theo Dõi';
+      showToast(`Đã xóa ${SYMBOL} khỏi danh sách theo dõi`, 'info');
+    } else {
+      await fetch(`${API}/watchlist/${CHAT_ID}/${SYMBOL}`, { method: 'POST' });
+      btn.textContent = '✅ Đang Theo Dõi';
+      showToast(`Đã thêm ${SYMBOL} vào danh sách theo dõi`, 'success');
+    }
+  } catch (e) { showToast('Lỗi kết nối backend', 'error'); }
+}
+
+// ─── Search ───────────────────────────────────────────────────────────────────
+let STOCK_LIST = [];
+fetch(`${API}/symbols`).then(r => r.json()).then(j => { STOCK_LIST = (j.symbols || []).map(x => [x.symbol, x.name]); }).catch(() => {});
+const searchInput = document.getElementById('searchInput');
+const searchDropdown = document.getElementById('searchDropdown');
+searchInput.addEventListener('input', () => {
+  const q = searchInput.value.trim().toUpperCase();
+  if (!q) { searchDropdown.classList.remove('show'); return; }
+  const safeQ = q.replace(/[^A-Z0-9]/g, '').slice(0, 10);
+  if (!safeQ) { searchDropdown.classList.remove('show'); return; }
+  const m = STOCK_LIST.filter(s => s[0].includes(safeQ) || s[1].toUpperCase().includes(safeQ)).slice(0, 6);
+  const items = m.map(s => {
+    const sym = cleanSymbol(s[0]);
+    return `<div class="search-item" onclick="window.location='stock.html?symbol=${encodeURIComponent(sym)}'"><span class="search-item-name">${esc(sym)}</span><span class="search-item-desc">${esc(s[1])}</span></div>`;
+  });
+  if (safeQ.length >= 2 && !m.some(s => s[0] === safeQ)) {
+    items.push(`<div class="search-item" onclick="window.location='stock.html?symbol=${encodeURIComponent(safeQ)}'"><span class="search-item-name">${esc(safeQ)}</span><span class="search-item-desc">→ Phân tích mã ${esc(safeQ)}</span></div>`);
+  }
+  if (!items.length) { searchDropdown.classList.remove('show'); return; }
+  searchDropdown.innerHTML = items.join('');
+  searchDropdown.classList.add('show');
+});
+searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') { const s = cleanSymbol(searchInput.value); if (s) window.location = `stock.html?symbol=${encodeURIComponent(s)}`; } });
+document.addEventListener('click', e => { if (!e.target.closest('.search-wrap')) searchDropdown.classList.remove('show'); });
+
+// ─── Notes (lưu localStorage theo từng mã) ────────────────────────────────────
+const NOTES_KEY = `stockvn_notes_${SYMBOL}`;
+const NOTE_TYPE_META = {
+  info:    { emoji: '💬', label: 'Ghi chú', color: '#58a6ff', position: 'aboveBar' },
+  buy:     { emoji: '🟢', label: 'Mua',     color: '#3fb950', position: 'belowBar' },
+  sell:    { emoji: '🔴', label: 'Bán',     color: '#f85149', position: 'aboveBar' },
+  watch:   { emoji: '👁', label: 'Theo dõi', color: '#d29922', position: 'aboveBar' },
+  warning: { emoji: '⚠️', label: 'Cảnh báo', color: '#d29922', position: 'aboveBar' },
+};
+
+function loadNotes() {
+  try { return JSON.parse(localStorage.getItem(NOTES_KEY) || '[]'); }
+  catch { return []; }
+}
+
+function saveNotes(notes) {
+  localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+}
+
+function addNote() {
+  const date = document.getElementById('noteDate').value;
+  const type = document.getElementById('noteType').value;
+  const textEl = document.getElementById('noteText');
+  const text = textEl.value.trim();
+  if (!date) { showToast('Chọn ngày cho ghi chú', 'error'); return; }
+  if (!text) { showToast('Nhập nội dung ghi chú', 'error'); return; }
+  const notes = loadNotes();
+  notes.push({ id: Date.now(), date, type, text, created: new Date().toISOString() });
+  saveNotes(notes);
+  textEl.value = '';
+  renderNotes();
+  renderChartMarkers();
+  showToast('Đã thêm ghi chú', 'success');
+}
+
+function deleteNote(id) {
+  const notes = loadNotes().filter(n => n.id !== id);
+  saveNotes(notes);
+  renderNotes();
+  renderChartMarkers();
+  showToast('Đã xóa ghi chú', 'info');
+}
+
+function editNote(id) {
+  const notes = loadNotes();
+  const n = notes.find(x => x.id === id);
+  if (!n) return;
+  const newText = prompt('Sửa ghi chú:', n.text);
+  if (newText !== null && newText.trim()) {
+    n.text = newText.trim();
+    saveNotes(notes);
+    renderNotes();
+    renderChartMarkers();
+  }
+}
+
+function renderNotes() {
+  const notes = loadNotes().sort((a, b) => b.date.localeCompare(a.date));
+  const list = document.getElementById('notesList');
+  document.getElementById('notesSymbol').textContent = SYMBOL;
+  document.getElementById('notesCount').textContent = `${notes.length} ghi chú`;
+  if (!notes.length) {
+    list.innerHTML = `<div class="notes-empty">Chưa có ghi chú nào cho ${SYMBOL}. Thêm ghi chú để đánh dấu vùng giá quan trọng, lý do mua/bán, v.v.</div>`;
+    return;
+  }
+  list.innerHTML = notes.map(n => {
+    const meta = NOTE_TYPE_META[n.type] || NOTE_TYPE_META.info;
+    return `<div class="note-item note-${n.type}">
+      <div class="note-head">
+        <span class="note-badge" style="color:${meta.color}">${meta.emoji} ${meta.label}</span>
+        <span class="note-date-tag">${n.date}</span>
+        <div class="note-actions">
+          <button class="note-action-btn" onclick="editNote(${n.id})" title="Sửa">✏️</button>
+          <button class="note-action-btn" onclick="deleteNote(${n.id})" title="Xóa">🗑️</button>
+        </div>
+      </div>
+      <div class="note-body">${n.text.replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]))}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderChartMarkers() {
+  if (!candleSeries) return;
+  const notes = loadNotes();
+  const markers = notes.map(n => {
+    const meta = NOTE_TYPE_META[n.type] || NOTE_TYPE_META.info;
+    return {
+      time: n.date,
+      position: meta.position,
+      color: meta.color,
+      shape: n.type === 'buy' ? 'arrowUp' : n.type === 'sell' ? 'arrowDown' : 'circle',
+      text: `${meta.emoji} ${n.text.slice(0, 40)}`,
+    };
+  }).sort((a, b) => a.time.localeCompare(b.time));
+  try { candleSeries.setMarkers(markers); } catch (e) { console.warn('Marker error:', e); }
+}
+
+// ─── Render AI Markdown ───────────────────────────────────────────────────────
+function renderAI(text) {
+  // Escape HTML first
+  let s = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // Section headings: *📊 Tiêu đề* → styled block
+  s = s.replace(/^\*([\u{1F300}-\u{1FFFF}⚡⚠️💡📊📈🎯🤖\w].*?)\*$/gmu,
+    '<div class="ai-section-title">$1</div>');
+  // Remaining *bold* (single asterisk)
+  s = s.replace(/\*([^*\n]+?)\*/g, '<strong>$1</strong>');
+  // **bold** (double asterisk)
+  s = s.replace(/\*\*([^*]+?)\*\*/g, '<strong>$1</strong>');
+  // Bullet points: "  • text" or "- text"
+  s = s.replace(/^[ \t]*[•\-]\s+(.+)$/gm, '<li>$1</li>');
+  s = s.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+  // Line breaks
+  s = s.replace(/\n/g, '<br>');
+  // Clean up <br> inside ul
+  s = s.replace(/<\/ul><br>/g, '</ul>');
+  return s;
+}
+
+// ─── Load Stock Data ──────────────────────────────────────────────────────────
+async function loadStockData() {
+  initCharts();
+  try {
+    const res = await fetch(`${API}/stock/${SYMBOL}?days=10000`);
+    if (!res.ok) throw new Error('Không tìm thấy mã ' + SYMBOL);
+    const data = await res.json();
+    fullData = data.raw_data || [];
+
+    renderHeader(data, data.analysis);
+    renderIndicators(data.analysis);
+    renderSignals(data.analysis.signals);
+    renderCharts(fullData.slice(-120));
+    renderChartMarkers();
+
+    // Fundamentals (chạy song song, không block)
+    fetch(`${API}/stock/${SYMBOL}/fundamentals`)
+      .then(r => r.json())
+      .then(d => renderFundamentals(d.fundamentals || {}))
+      .catch(() => {});
+
+    // Deep Fundamentals (Báo cáo tài chính)
+    fetch(`${API}/stock/${SYMBOL}/deep_fundamentals`)
+      .then(r => r.json())
+      .then(d => renderDeepFundamentals(d.deep_fundamentals || {}))
+      .catch((e) => {
+          document.getElementById('deepFundContent').innerHTML = '<div style="color:#ff4757; font-size:13px;">Lỗi tải dữ liệu tài chính: ' + e.message + '</div>';
+      });
+
+    // News & AI Sentiment
+    fetch(`${API}/stock/${SYMBOL}/news_sentiment`)
+      .then(r => r.json())
+      .then(d => renderNews(d || {}))
+      .catch((e) => {
+          document.getElementById('newsContent').innerHTML = '<div style="color:#ff4757; font-size:13px;">Lỗi tải tin tức: ' + e.message + '</div>';
+      });
+
+    // Check watchlist status
+    try {
+      const wlRes = await fetch(`${API}/watchlist/${CHAT_ID}`);
+      const wl = await wlRes.json();
+      if ((wl.symbols || []).includes(SYMBOL)) document.getElementById('watchBtn').textContent = '✅ Đang Theo Dõi';
+    } catch {}
+
+  } catch (e) {
+    showToast('Lỗi: ' + e.message, 'error');
+    document.getElementById('stockPrice').textContent = 'Không tìm thấy';
+  }
+
+  // Load AI separately (slower)
+  try {
+    const aiRes = await fetch(`${API}/stock/${SYMBOL}/ai`);
+    const aiData = await aiRes.json();
+    const aiRaw = aiData.ai_analysis || 'Không có phân tích AI';
+    document.getElementById('aiBody').innerHTML = renderAI(aiRaw);
+    document.getElementById('aiLoading').textContent = '';
+  } catch {
+    document.getElementById('aiBody').textContent = 'Không thể kết nối AI lúc này.';
+    document.getElementById('aiLoading').textContent = '';
+  }
+}
+
+// Khởi tạo notes UI
+document.getElementById('noteDate').value = new Date().toISOString().slice(0, 10);
+renderNotes();
+
+loadStockData();
+</script>
+
+<!-- Service Worker Registration -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').then(reg => {
+        console.log('SW registered!', reg);
+      }).catch(err => console.log('SW registration failed', err));
+    });
+  }
+</script>
+</body>
+</html>

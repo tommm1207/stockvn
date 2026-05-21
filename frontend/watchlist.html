@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Watchlist – StockVN</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+  <!-- PWA & Mobile First -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+</head>
+<body>
+
+<header class="header">
+  <a href="index.html" class="logo">
+    <div class="logo-icon"><svg viewBox="0 0 24 24" stroke="white" fill="none" stroke-width="2.5"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div>
+    <div><div class="logo-text">StockVN</div><div class="logo-sub">Phân tích thời gian thực</div></div>
+  </a>
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="searchInput" class="search-input" placeholder="Tìm mã CK..." autocomplete="off" />
+    <div class="search-dropdown" id="searchDropdown"></div>
+  </div>
+  <nav class="header-nav">
+    <a href="/" class="nav-link">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      Tổng Quan
+    </a>
+    <a href="/watchlist.html" class="nav-link active">
+      <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      Theo Dõi
+    </a>
+    <a href="/portfolio.html" class="nav-link">
+      <svg viewBox="0 0 24 24"><path d="M21 12V7H5a2 2 0 010-4h14v4"/><path d="M3 5v14a2 2 0 002 2h16v-5"/><path d="M18 12a2 2 0 000 4h4v-4h-4z"/></svg>
+      Danh Mục
+    </a>
+    <a href="/scanner.html" class="nav-link">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Bộ Lọc
+    </a>
+    <div class="clock" id="clock">--:--:--</div>
+  </nav>
+</header>
+
+<main class="main">
+
+  <div class="section-header" style="margin-bottom:24px">
+    <div class="section-title">⭐ Danh Mục Theo Dõi</div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <input id="addSymbolInput" class="search-input" style="max-width:160px;margin:0" placeholder="VNM, HPG..." />
+      <button class="btn btn-primary" onclick="addSymbol()">➕ Thêm</button>
+      <span class="section-action" onclick="refreshWatchlist()">↻ Cập nhật</span>
+    </div>
+  </div>
+
+  <!-- Chat ID info -->
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 20px;margin-bottom:20px;font-size:13px;color:var(--text-secondary)">
+    💡 Watchlist này đồng bộ với <strong style="color:var(--blue)">Telegram Bot</strong>. 
+    Để nhận cảnh báo tín hiệu, gửi <code style="background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px">/start</code> cho bot và thêm mã bằng 
+    <code style="background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px">/watch VNM</code>.
+    ID của bạn trên web: <code id="displayChatId" style="background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px">đang tạo...</code>
+  </div>
+
+  <!-- Stats -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px" id="statsRow">
+    <div class="ind-card"><div class="ind-card-label">Tổng cổ phiếu</div><div class="ind-card-value" id="statTotal">–</div></div>
+    <div class="ind-card"><div class="ind-card-label">🟢 NÊN MUA</div><div class="ind-card-value buy" id="statBuy">–</div></div>
+    <div class="ind-card"><div class="ind-card-label">🔴 KHÔNG MUA</div><div class="ind-card-value sell" id="statSell">–</div></div>
+  </div>
+
+  <!-- Watchlist Table -->
+  <div class="watchlist-table" id="watchlistContainer">
+    <div class="wl-row header">
+      <div>Mã CK</div>
+      <div>Tín hiệu</div>
+      <div>Giá hiện tại</div>
+      <div>Thay đổi</div>
+      <div>Điểm</div>
+      <div></div>
+    </div>
+    <div id="watchlistBody">
+      <div class="loading-overlay"><div class="spinner"></div><span>Đang tải watchlist…</span></div>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div id="emptyState" style="display:none;text-align:center;padding:60px 20px;color:var(--text-secondary)">
+    <div style="font-size:48px;margin-bottom:16px">📋</div>
+    <div style="font-size:18px;font-weight:600;color:var(--text-primary);margin-bottom:8px">Danh mục trống</div>
+    <div style="font-size:14px">Thêm mã cổ phiếu bằng ô nhập bên trên hoặc từ trang phân tích</div>
+  </div>
+
+</main>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<div id="chatbotMount"></div>
+<script>
+fetch('/static/chatbot.html').then(r=>r.text()).then(html=>{
+  document.getElementById('chatbotMount').innerHTML=html;
+  document.querySelectorAll('#chatbotMount script').forEach(s=>{
+    const ns=document.createElement('script');ns.textContent=s.textContent;document.body.appendChild(ns);
+  });
+});
+</script>
+
+<script>
+const API = '/api';
+
+function cleanSymbol(s) {
+  const v = String(s ?? '').trim().toUpperCase();
+  return /^[A-Z0-9]{2,10}$/.test(v) ? v : '';
+}
+
+
+        function getClientId() {
+          const tgId = localStorage.getItem('telegram_chat_id');
+          if (tgId) return String(tgId);
+          let id = localStorage.getItem('stockvn_client_id');
+          if (!id) {
+            id = 'web_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('stockvn_client_id', id);
+          }
+          return id;
+        }
+        window.onTelegramAuth = function(user) {
+          localStorage.setItem('telegram_chat_id', user.id);
+          localStorage.setItem('telegram_user', JSON.stringify(user));
+          alert('Đăng nhập thành công!');
+          location.reload();
+        };
+        function logoutTelegram() {
+          localStorage.removeItem('telegram_chat_id');
+          localStorage.removeItem('telegram_user');
+          location.reload();
+        }
+        $/.test(id || '')) {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    id = 'web_' + Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+    localStorage.setItem(key, id);
+  }
+  return id;
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+const CHAT_ID = getClientId();
+document.getElementById('displayChatId').textContent = CHAT_ID;
+
+setInterval(() => { document.getElementById('clock').textContent = new Date().toLocaleTimeString('vi-VN'); }, 1000);
+document.getElementById('clock').textContent = new Date().toLocaleTimeString('vi-VN');
+
+function showToast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+function fmtPrice(p) { return Number(p).toLocaleString('vi-VN'); }
+function fmtPct(p) { return (p >= 0 ? '+' : '') + Number(p).toFixed(2) + '%'; }
+
+function signalHtml(rec, vn) {
+  const m = { BUY: 'buy', SELL: 'sell', HOLD: 'hold' };
+  return `<span class="signal-badge ${m[rec] || 'hold'}">${vn || rec}</span>`;
+}
+
+async function removeSymbol(symbol) {
+  symbol = cleanSymbol(symbol);
+  if (!symbol) return;
+  try {
+    await fetch(`${API}/watchlist/${CHAT_ID}/${symbol}`, { method: 'DELETE' });
+    showToast(`Đã xóa ${symbol}`, 'info');
+    loadWatchlist();
+  } catch { showToast('Lỗi xóa cổ phiếu', 'error'); }
+}
+
+async function addSymbol() {
+  const sym = cleanSymbol(document.getElementById('addSymbolInput').value);
+  if (!sym) { showToast('Mã cổ phiếu không hợp lệ', 'error'); return; }
+  try {
+    const res = await fetch(`${API}/watchlist/${CHAT_ID}/${sym}`, { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+      showToast(`Đã thêm ${sym} vào watchlist`, 'success');
+      document.getElementById('addSymbolInput').value = '';
+      loadWatchlist();
+    } else {
+      showToast(`${sym} đã có trong watchlist rồi`, 'info');
+    }
+  } catch { showToast('Lỗi kết nối', 'error'); }
+}
+
+document.getElementById('addSymbolInput').addEventListener('keydown', e => { if (e.key === 'Enter') addSymbol(); });
+
+async function loadWatchlist() {
+  const body = document.getElementById('watchlistBody');
+  body.innerHTML = `<div class="loading-overlay"><div class="spinner"></div><span>Đang phân tích danh mục…</span></div>`;
+
+  try {
+    const res = await fetch(`${API}/watchlist/${CHAT_ID}/analyze`);
+    const data = await res.json();
+    const items = data.symbols || [];
+
+    if (items.length === 0) {
+      body.innerHTML = '';
+      document.getElementById('emptyState').style.display = 'block';
+      document.getElementById('statTotal').textContent = '0';
+      document.getElementById('statBuy').textContent = '0';
+      document.getElementById('statSell').textContent = '0';
+      return;
+    }
+    document.getElementById('emptyState').style.display = 'none';
+
+    const buyCount = items.filter(s => s.recommendation === 'BUY').length;
+    const sellCount = items.filter(s => s.recommendation === 'SELL').length;
+    document.getElementById('statTotal').textContent = items.length;
+    document.getElementById('statBuy').textContent = buyCount;
+    document.getElementById('statSell').textContent = sellCount;
+
+    // Sort: BUY first, then HOLD, then SELL
+    const order = { BUY: 0, HOLD: 1, SELL: 2 };
+    items.sort((a, b) => (order[a.recommendation] || 1) - (order[b.recommendation] || 1));
+
+    body.innerHTML = items.map(s => {
+      const sym = cleanSymbol(s.symbol);
+      if (!sym) return '';
+      return `
+      <div class="wl-row">
+        <div class="wl-symbol"><a href="stock.html?symbol=${encodeURIComponent(sym)}" style="color:inherit;text-decoration:none">${esc(sym)}</a></div>
+        <div>${signalHtml(s.recommendation, s.recommendation_vn)}</div>
+        <div class="wl-price">${fmtPrice(s.price)} ₫</div>
+        <div class="wl-price ${s.change_pct >= 0 ? 'up' : 'down'}" style="color:${s.change_pct >= 0 ? 'var(--green)' : 'var(--red)'}">${fmtPct(s.change_pct)}</div>
+        <div class="wl-score" style="color:${s.score >= 4 ? 'var(--green)' : s.score <= -4 ? 'var(--red)' : 'var(--yellow)'}">${s.score}/8</div>
+        <div>
+          <button class="btn btn-icon" onclick="removeSymbol('${esc(sym)}')" title="Xóa">🗑️</button>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    body.innerHTML = `<div class="loading-overlay">❌ Lỗi kết nối backend. Kiểm tra server đang chạy.</div>`;
+  }
+}
+
+function refreshWatchlist() { showToast('Đang cập nhật...', 'info'); loadWatchlist(); }
+
+// Search
+let STOCK_LIST = [];
+fetch(`${API}/symbols`).then(r => r.json()).then(j => { STOCK_LIST = (j.symbols || []).map(x => [x.symbol, x.name]); }).catch(() => {});
+const searchInput = document.getElementById('searchInput');
+const searchDropdown = document.getElementById('searchDropdown');
+searchInput.addEventListener('input', () => {
+  const q = searchInput.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
+  if (!q) { searchDropdown.classList.remove('show'); return; }
+  const m = STOCK_LIST.filter(s => s[0].includes(q) || s[1].toUpperCase().includes(q)).slice(0, 6);
+  const items = m.map(s => {
+    const sym = cleanSymbol(s[0]);
+    return `<div class="search-item" onclick="window.location='stock.html?symbol=${encodeURIComponent(sym)}'"><span class="search-item-name">${esc(sym)}</span><span class="search-item-desc">${esc(s[1])}</span></div>`;
+  });
+  if (q.length >= 2 && !m.some(s => s[0] === q)) {
+    items.push(`<div class="search-item" onclick="window.location='stock.html?symbol=${encodeURIComponent(q)}'"><span class="search-item-name">${esc(q)}</span><span class="search-item-desc">→ Phân tích mã ${esc(q)}</span></div>`);
+  }
+  if (!items.length) { searchDropdown.classList.remove('show'); return; }
+  searchDropdown.innerHTML = items.join('');
+  searchDropdown.classList.add('show');
+});
+searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') { const s = cleanSymbol(searchInput.value); if (s) window.location = `stock.html?symbol=${encodeURIComponent(s)}`; } });
+document.addEventListener('click', e => { if (!e.target.closest('.search-wrap')) searchDropdown.classList.remove('show'); });
+
+loadWatchlist();
+setInterval(loadWatchlist, 300000);
+</script>
+
+<!-- Service Worker Registration -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').then(reg => {
+        console.log('SW registered!', reg);
+      }).catch(err => console.log('SW registration failed', err));
+    });
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>StockVN – Phân Tích Cổ Phiếu Việt Nam</title>
+  <meta name="description" content="Phân tích cổ phiếu Việt Nam thời gian thực với AI, RSI, MACD, Bollinger Bands."/>
+  <link rel="stylesheet" href="css/style.css"/>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+  <!-- PWA & Mobile First -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+</head>
+<body>
+
+<header class="header">
+  <a href="index.html" class="logo">
+    <img src="/icons/icon.svg" style="width:34px;height:34px;border-radius:9px;box-shadow: 0 4px 12px rgba(0,0,0,0.5);" alt="Logo" />
+    <div><div class="logo-text">StockVN</div><div class="logo-sub">Phân tích thời gian thực</div></div>
+  </a>
+
+  <div class="search-wrap">
+    <svg class="search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input type="text" id="searchInput" class="search-input" placeholder="Tìm mã CK (VNM, HPG...)" autocomplete="off"/>
+    <div class="search-dropdown" id="searchDropdown"></div>
+  </div>
+
+  <nav class="header-nav">
+    <a href="/" class="nav-link active">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      Tổng Quan
+    </a>
+    <a href="/watchlist.html" class="nav-link">
+      <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      Theo Dõi
+    </a>
+    <a href="/portfolio.html" class="nav-link">
+      <svg viewBox="0 0 24 24"><path d="M21 12V7H5a2 2 0 010-4h14v4"/><path d="M3 5v14a2 2 0 002 2h16v-5"/><path d="M18 12a2 2 0 000 4h4v-4h-4z"/></svg>
+      Danh Mục
+    </a>
+    <a href="/scanner.html" class="nav-link">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Bộ Lọc
+    </a>
+    <div class="clock" id="clock">--:--:--</div>
+  </nav>
+</header>
+
+<main class="main">
+
+  <!-- Market Overview -->
+  <div class="market-ticker" id="marketTicker">
+    <div class="ticker-item">
+      <div class="ticker-label">VN-Index</div>
+      <div class="ticker-value" id="vnindex-val">—</div>
+      <div class="ticker-change" id="vnindex-chg">—</div>
+    </div>
+    <div class="ticker-item">
+      <div class="ticker-label">HNX-Index</div>
+      <div class="ticker-value" id="hnx-val">—</div>
+      <div class="ticker-change" id="hnx-chg">—</div>
+    </div>
+    <div class="ticker-item">
+      <div class="ticker-label">UPCOM-Index</div>
+      <div class="ticker-value" id="upcom-val">—</div>
+      <div class="ticker-change" id="upcom-chg">—</div>
+    </div>
+    <div class="ticker-ai">
+      <div class="ticker-ai-label">
+        <svg width="12" height="12" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+        Trợ lý AI nhận xét thị trường
+      </div>
+      <div id="marketCommentary">Đang tải nhận xét thị trường…</div>
+    </div>
+  </div>
+
+  <!-- Hot Stocks -->
+  <section style="margin-bottom:28px">
+    <div class="section-header">
+      <div class="section-title">
+        <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        Tín Hiệu Cổ Phiếu Nổi Bật
+        <span id="stockCount"></span>
+      </div>
+      <a class="section-action" onclick="refreshStocks()">
+        <svg width="13" height="13" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Cập nhật
+      </a>
+    </div>
+    <div id="stocksGrid" class="cards-grid">
+      <div class="loading-overlay" style="grid-column:1/-1">
+        <div class="spinner"></div>
+        <span>Đang phân tích cổ phiếu…</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Top Movers -->
+  <section>
+    <div class="section-header">
+      <div class="section-title">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        Thị Trường Hôm Nay
+      </div>
+    </div>
+    <div class="movers-grid">
+      <div class="movers-table">
+        <div class="movers-table-header green">
+          <svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          Tăng Mạnh Nhất
+        </div>
+        <div id="topGainers"><div class="loading-overlay"><div class="spinner"></div></div></div>
+      </div>
+      <div class="movers-table">
+        <div class="movers-table-header red">
+          <svg viewBox="0 0 24 24"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>
+          Giảm Mạnh Nhất
+        </div>
+        <div id="topLosers"><div class="loading-overlay"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- CHATBOT -->
+<div id="chatbotMount"></div>
+<script>
+fetch('/static/chatbot.html').then(r=>r.text()).then(html=>{
+  document.getElementById('chatbotMount').innerHTML=html;
+  // re-execute scripts
+  document.querySelectorAll('#chatbotMount script').forEach(s=>{
+    const ns=document.createElement('script');ns.textContent=s.textContent;document.body.appendChild(ns);
+  });
+});
+</script>
+
+<script>
+const API='/api';
+const HOT=['VNM','HPG','VIC','VHM','FPT','TCB','VCB','MBB','MSN','REE','SSI','VND','DGC','PNJ','MWG'];
+
+setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocaleTimeString('vi-VN');},1000);
+document.getElementById('clock').textContent=new Date().toLocaleTimeString('vi-VN');
+
+function showToast(msg,type='info'){
+  const el=document.createElement('div');el.className=`toast ${type}`;el.textContent=msg;
+  document.getElementById('toastContainer').appendChild(el);setTimeout(()=>el.remove(),3500);
+}
+function fmtP(p){return Number(p).toLocaleString('vi-VN');}
+function fmtPct(p){return(p>=0?'+':'')+Number(p).toFixed(2)+'%';}
+function cls(r){return{BUY:'buy',SELL:'sell',HOLD:'hold'}[r]||'hold';}
+function lbl(r){return{BUY:'NÊN MUA',SELL:'KHÔNG MUA',HOLD:'CÂN NHẮC'}[r]||'—';}
+function esc(s){return String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function cleanSymbol(s){const v=String(s ?? '').trim().toUpperCase();return /^[A-Z0-9]{2,10}$/.test(v)?v:'';}
+
+async function loadMarket(){
+  try{
+    const j=await fetch(`${API}/market/overview`).then(r=>r.json());
+    const ov=j.overview||{};
+    [['vnindex','VNINDEX'],['hnx','HNX'],['upcom','UPCOM']].forEach(([id,key])=>{
+      const d=ov[key]||{};
+      document.getElementById(`${id}-val`).textContent=Number(d.value||0).toLocaleString('vi-VN',{maximumFractionDigits:2});
+      const up=(d.change_pct||0)>=0;
+      const el=document.getElementById(`${id}-chg`);
+      el.textContent=(up?'▲ ':'▼ ')+fmtPct(d.change_pct||0);
+      el.className='ticker-change '+(up?'up':'down');
+    });
+    if(j.commentary)document.getElementById('marketCommentary').textContent=j.commentary;
+  }catch(e){showToast('Không tải được thị trường','error');}
+}
+
+function buildCard(sym,d){
+  sym=cleanSymbol(sym);
+  const an=d.analysis,rec=an.recommendation,c=cls(rec),p=d.last_price||0,pct=an.price_info?.change_pct||0;
+  const rsi=an.indicators?.rsi||0,score=an.score||0;
+  const sw=Math.min(100,Math.max(0,((score+8)/16)*100));
+  return `<a href="stock.html?symbol=${encodeURIComponent(sym)}" class="stock-card ${c}">
+    <div class="card-top">
+      <div class="card-symbol">${sym}</div>
+      <div class="signal-badge ${c}">${lbl(rec)}</div>
+    </div>
+    <div class="card-price">${fmtP(p)} ₫</div>
+    <div class="card-change ${pct>=0?'up':'down'}">${fmtPct(pct)}</div>
+    <div class="card-indicators">
+      <div class="ind-item"><div class="ind-label">RSI</div><div class="ind-value" style="color:${rsi<30?'var(--green)':rsi>70?'var(--red)':'var(--txt)'}">${rsi}</div></div>
+      <div class="ind-item"><div class="ind-label">MACD</div><div class="ind-value">${an.indicators?.macd?.cross==='bullish'?'↑':an.indicators?.macd?.cross==='bearish'?'↓':'—'}</div></div>
+      <div class="ind-item"><div class="ind-label">Điểm</div><div class="ind-value">${score}/8</div></div>
+    </div>
+    <div class="score-bar"><div class="score-fill ${c}" style="width:${sw}%"></div></div>
+  </a>`;
+}
+
+async function loadStocks(){
+  const g=document.getElementById('stocksGrid');
+  g.innerHTML=`<div class="loading-overlay" style="grid-column:1/-1"><div class="spinner"></div><span>Đang phân tích ${HOT.length} cổ phiếu…</span></div>`;
+  const results=await Promise.allSettled(HOT.map(s=>fetch(`${API}/stock/${s}`).then(r=>r.ok?r.json():null)));
+  const cards=[];
+  results.forEach((r,i)=>{if(r.status==='fulfilled'&&r.value)cards.push(buildCard(HOT[i],r.value));});
+  if(!cards.length){g.innerHTML=`<div class="loading-overlay" style="grid-column:1/-1;color:var(--txt2)">⚠️ Không tải được dữ liệu — kiểm tra backend đang chạy</div>`;return;}
+  g.innerHTML=cards.join('');
+  document.getElementById('stockCount').textContent=`(${cards.length})`;
+}
+function refreshStocks(){loadStocks();showToast('Đang cập nhật...','info');}
+
+async function loadMovers(){
+  try{
+    const j=await fetch(`${API}/market/top-movers`).then(r=>r.json());
+    const render=(data,id,up)=>{
+      document.getElementById(id).innerHTML=data.map(s=>{
+        const sym=cleanSymbol(s.symbol);
+        if(!sym)return '';
+        return `
+        <a href="stock.html?symbol=${encodeURIComponent(sym)}" class="mover-row">
+          <span class="mover-sym">${esc(sym)}</span>
+          <span class="mover-price">${fmtP(s.price)} ₫</span>
+          <span class="mover-change ${up?'up':'down'}">${fmtPct(s.change_pct)}</span>
+        </a>`;
+      }).join('');
+    };
+    render(j.top_gainers||[],'topGainers',true);
+    render(j.top_losers||[],'topLosers',false);
+  }catch{
+    ['topGainers','topLosers'].forEach(id=>{document.getElementById(id).innerHTML='<div style="padding:20px;color:var(--txt2);text-align:center;font-size:13px">Không tải được</div>';});
+  }
+}
+
+let STOCKS=[];
+fetch(`${API}/symbols`).then(r=>r.json()).then(j=>{STOCKS=(j.symbols||[]).map(x=>[x.symbol,x.name]);}).catch(()=>{});
+const si=document.getElementById('searchInput'),sd=document.getElementById('searchDropdown');
+si.addEventListener('input',()=>{
+  const raw=si.value.trim().toUpperCase();
+  const q=raw.replace(/[^A-Z0-9]/g,'').slice(0,10);
+  if(!q){sd.classList.remove('show');return;}
+  const m=STOCKS.filter(s=>s[0].includes(q)||s[1].toUpperCase().includes(q)).slice(0,7);
+  const items=m.map(s=>`<div class="search-item" onclick="location='stock.html?symbol=${encodeURIComponent(cleanSymbol(s[0]))}'"><span class="search-item-name">${esc(s[0])}</span><span class="search-item-desc">${esc(s[1])}</span></div>`);
+  if(q.length>=2 && !m.some(s=>s[0]===q)){
+    items.push(`<div class="search-item" onclick="location='stock.html?symbol=${encodeURIComponent(q)}'"><span class="search-item-name">${esc(q)}</span><span class="search-item-desc">→ Phân tích mã ${esc(q)}</span></div>`);
+  }
+  if(!items.length){sd.classList.remove('show');return;}
+  sd.innerHTML=items.join('');
+  sd.classList.add('show');
+});
+si.addEventListener('keydown',e=>{if(e.key==='Enter'){const s=cleanSymbol(si.value);if(s)location=`stock.html?symbol=${encodeURIComponent(s)}`;}});
+document.addEventListener('click',e=>{if(!e.target.closest('.search-wrap'))sd.classList.remove('show');});
+
+loadMarket();loadStocks();loadMovers();
+setInterval(()=>{loadMarket();loadMovers();},60000);
+setInterval(loadStocks,300000);
+</script>
+
+<!-- Service Worker Registration -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').then(reg => {
+        console.log('SW registered!', reg);
+      }).catch(err => console.log('SW registration failed', err));
+    });
+  }
+</script>
+</body>
+</html>

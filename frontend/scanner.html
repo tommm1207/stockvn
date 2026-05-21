@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="StockVN - Lọc cổ phiếu Việt Nam theo chỉ báo kỹ thuật">
+  <title>Market Scanner – StockVN</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <script src="/js/storage.js"></script>
+  <script src="/js/api.js"></script>
+  <style>
+    .market-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .stat-title {
+      font-size: 13px;
+      color: var(--txt2);
+      font-weight: 500;
+    }
+    .stat-val {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--txt);
+    }
+    .stat-sub {
+      font-size: 12px;
+      color: var(--txt2);
+    }
+    
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+    .tab {
+      padding: 12px 24px;
+      color: var(--txt2);
+      cursor: pointer;
+      font-weight: 600;
+      border-bottom: 2px solid transparent;
+    }
+    .tab.active {
+      color: var(--blue);
+      border-bottom-color: var(--blue);
+    }
+    
+    .signal-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .signal-card:hover {
+      border-color: var(--blue);
+      transform: translateY(-2px);
+    }
+    .sig-left {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .sig-sym { font-weight: 700; font-size: 18px; color: var(--txt); }
+    .sig-name { font-size: 13px; font-weight: 600; }
+    .sig-note { font-size: 13px; color: var(--txt2); }
+    
+    .sig-right { text-align: right; }
+    .sig-price { font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+  
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+      overflow-x: auto;
+      white-space: nowrap;
+      -webkit-overflow-scrolling: touch;
+    }
+    .scanner-table-wrap {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      margin: 0 -12px;
+      padding: 0 12px;
+    }
+    .scanner-row {
+      grid-template-columns: 80px 80px 80px 80px 80px minmax(200px, 1fr) !important;
+      min-width: 600px; /* Force scroll on mobile instead of squishing */
+    }
+    @media (max-width: 768px) {
+      .market-stats {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+</style>
+
+  <!-- PWA & Mobile First -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#0f172a" />
+</head>
+<body>
+  <header class="header">
+    <a href="/" class="logo">
+      <div class="logo-icon"><svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div>
+      <div><div class="logo-text">StockVN</div><div class="logo-sub">Scanner</div></div>
+    </a>
+    <div class="search-wrap">
+      <svg class="search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="searchInput" class="search-input" placeholder="Tìm mã CK (VNM, HPG...)" autocomplete="off"/>
+      <div class="search-dropdown" id="searchDropdown"></div>
+    </div>
+
+    <nav class="header-nav">
+      <a href="/" class="nav-link"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Dashboard</a>
+      <a href="/watchlist.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>Watchlist</a>
+      <a href="/portfolio.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M21 12V7H5a2 2 0 010-4h14v4"/><path d="M3 5v14a2 2 0 002 2h16v-5"/><path d="M18 12a2 2 0 000 4h4v-4h-4z"/></svg>Portfolio</a>
+      <a href="/scanner.html" class="nav-link active"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Scanner</a>
+    </nav>
+  </header>
+
+  <div class="main">
+    <div class="section-header" style="justify-content: space-between;">
+      <div class="section-title"><svg viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>Market Scanner</div>
+      <div id="scan-time" style="font-size: 13px; color: var(--txt2);"></div>
+    </div>
+    
+    <div class="loading-overlay" style="display:none; position:relative; min-height: 200px; background: transparent" id="scan-loading"><div class="spinner"></div><span>Đang lấy dữ liệu thị trường...</span></div>
+
+    <div id="scan-content" style="display: none;">
+      <div class="market-stats">
+        <div class="stat-card">
+          <div class="stat-title">Độ phủ thị trường</div>
+          <div class="stat-val" id="stat-scanned">0</div>
+          <div class="stat-sub">Mã có thanh khoản</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Tín hiệu Tích cực</div>
+          <div class="stat-val" style="color: var(--green)" id="stat-buy">0</div>
+          <div class="stat-sub">Đủ điều kiện mua</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Tín hiệu Tiêu cực</div>
+          <div class="stat-val" style="color: var(--red)" id="stat-sell">0</div>
+          <div class="stat-sub">Rủi ro giảm giá</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Cơ hội Đột biến</div>
+          <div class="stat-val" style="color: var(--yellow)" id="stat-signals">0</div>
+          <div class="stat-sub">Tích lũy & Breakout</div>
+        </div>
+      </div>
+      
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('signals')" id="tab-btn-signals">Tín hiệu Đặc biệt</div>
+        <div class="tab" onclick="switchTab('top-buy')" id="tab-btn-buy">Top Khuyến Nghị Mua</div>
+        <div class="tab" onclick="switchTab('top-sell')" id="tab-btn-sell">Cảnh Báo Rủi Ro</div>
+      </div>
+      
+      <div id="tab-signals"></div>
+      <div id="tab-top-buy" style="display: none;"></div>
+      <div id="tab-top-sell" style="display: none;"></div>
+      
+    </div>
+  </div>
+
+<script>
+let marketData = null;
+
+async function loadData() {
+  document.getElementById('scan-loading').style.display = 'flex';
+  document.getElementById('scan-content').style.display = 'none';
+
+  try {
+    marketData = await API.get('/api/market-signals');
+    document.getElementById('scan-loading').style.display = 'none';
+    document.getElementById('scan-content').style.display = 'block';
+    
+    if (marketData.is_scanning) {
+        document.getElementById('scan-time').innerHTML = '<span style="color:var(--yellow)">⚠️ Đang chạy scan nền... Dữ liệu có thể chưa đầy đủ</span>';
+    } else if (marketData.last_updated) {
+        const d = new Date(marketData.last_updated);
+        document.getElementById('scan-time').textContent = `Cập nhật lúc: ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')} ${d.getDate()}/${d.getMonth()+1}`;
+    }
+    
+    document.getElementById('stat-scanned').textContent = `${marketData.active_symbols}/${marketData.total_scanned}`;
+    document.getElementById('stat-buy').textContent = marketData.summary.BUY || 0;
+    document.getElementById('stat-sell').textContent = marketData.summary.SELL || 0;
+    document.getElementById('stat-signals').textContent = (marketData.signals || []).length;
+    
+    renderSignals();
+    renderTable(marketData.top_buy, 'tab-top-buy');
+    renderTable(marketData.top_sell, 'tab-top-sell');
+    
+  } catch (e) {
+    document.getElementById('scan-loading').style.display = 'none';
+    showError('scan-content', e.message);
+  }
+}
+
+function switchTab(tabId) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(`tab-btn-${tabId.split('-').pop()}`).classList.add('active');
+    
+    document.getElementById('tab-signals').style.display = 'none';
+    document.getElementById('tab-top-buy').style.display = 'none';
+    document.getElementById('tab-top-sell').style.display = 'none';
+    
+    document.getElementById(`tab-${tabId}`).style.display = 'block';
+}
+
+function renderSignals() {
+    const container = document.getElementById('tab-signals');
+    const signals = marketData.signals || [];
+    
+    if (signals.length === 0) {
+        showEmpty('tab-signals', 'Chưa phát hiện mẫu hình kỹ thuật đặc biệt nào trên thị trường.');
+        return;
+    }
+    
+    let html = '';
+    for (const s of signals) {
+        const chg = formatChange(s.change_pct);
+        let color = 'var(--blue)';
+        if (s.signal_type === 'accumulation') color = 'var(--green)';
+        if (s.signal_type === 'distribution' || s.signal_type === 'breakdown') color = 'var(--red)';
+        if (s.signal_type === 'breakout') color = 'var(--yellow)';
+        
+        html += `<div class="signal-card" onclick="window.location='/stock.html?symbol=${s.symbol}'">
+            <div class="sig-left">
+                <div style="display:flex;align-items:center;gap:8px">
+                    <span class="sig-sym">${s.symbol}</span>
+                    <span class="sig-name" style="color:${color}">${s.signal_emoji} ${s.signal_name}</span>
+                </div>
+                <div class="sig-note">${s.signal_note}</div>
+                <div style="font-size:12px;color:var(--txt2);margin-top:4px">
+                    Khối lượng: ${(s.avg_vol).toLocaleString('en-US')} | RSI: ${s.rsi.toFixed(1)}
+                </div>
+            </div>
+            <div class="sig-right">
+                <div class="sig-price">${formatPrice(s.price)}</div>
+                <div class="${chg.cls}" style="font-size:13px;font-weight:600">${chg.text}</div>
+            </div>
+        </div>`;
+    }
+    container.innerHTML = html;
+}
+
+function renderTable(data, containerId) {
+    if (!data || data.length === 0) {
+        showEmpty(containerId, 'Không có dữ liệu');
+        return;
+    }
+    
+    let html = '<div class="scanner-table-wrap"><div class="watchlist-table">';
+    html += '<div class="wl-row header scanner-row"><span>Mã</span><span>Giá</span><span>Điểm</span><span>RSI</span><span>Volume</span><span>Entry / StopLoss</span></div>';
+    
+    for (const r of data) {
+      const chg = formatChange(r.change_pct);
+      const scoreColor = r.score >= 4 ? 'var(--green)' : r.score <= -4 ? 'var(--red)' : 'var(--yellow)';
+      const rsiColor = r.rsi < 30 ? 'var(--green)' : r.rsi > 70 ? 'var(--red)' : 'var(--txt)';
+      const volColor = r.volume_ratio > 1.5 ? 'var(--green)' : 'var(--txt)';
+      
+      const plan = r.trade_plan || {};
+      let planText = '—';
+      if (plan.entry && plan.stop_loss) {
+          planText = `<span style="color:var(--green)">Vào: ${formatPrice(plan.entry)}</span> | <span style="color:var(--red)">Cắt: ${formatPrice(plan.stop_loss)}</span> <span style="color:var(--txt2);font-size:11px">(${plan.risk_pct}%)</span>`;
+      }
+      
+      html += `<div class="wl-row scanner-row" style="cursor:pointer" onclick="window.location='/stock.html?symbol=${esc(r.symbol)}'">
+        <span class="wl-symbol">${esc(r.symbol)}</span>
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <span class="wl-price">${formatPrice(r.price)}</span>
+          <span class="wl-price ${chg.cls}" style="font-size:11px">${chg.text}</span>
+        </div>
+        <span style="color:${scoreColor};font-weight:600;font-size:13px">${r.score}/8 ${r.emoji}</span>
+        <span class="wl-price" style="color:${rsiColor}">${r.rsi.toFixed(1)}</span>
+        <span class="wl-price" style="color:${volColor}">${r.volume_ratio.toFixed(1)}x</span>
+        <span style="font-size:13px;font-family:'JetBrains Mono',monospace">${planText}</span>
+      </div>`;
+    }
+    html += '</div></div>';
+    document.getElementById(containerId).innerHTML = html;
+}
+
+
+let STOCKS=[];
+fetch(`/api/symbols`).then(r=>r.json()).then(j=>{STOCKS=(j.symbols||[]).map(x=>[x.symbol,x.name]);}).catch(()=>{});
+
+const si=document.getElementById('searchInput'),sd=document.getElementById('searchDropdown');
+if(si && sd) {
+  si.addEventListener('input',()=>{
+    const raw=si.value.trim().toUpperCase();
+    const q=raw.replace(/[^A-Z0-9]/g,'').slice(0,10);
+    if(!q){sd.classList.remove('show');return;}
+    const m=STOCKS.filter(s=>s[0].includes(q)||s[1].toUpperCase().includes(q)).slice(0,7);
+    const items=m.map(s=>`<div class="search-item" onclick="location='/stock.html?symbol=${encodeURIComponent(s[0])}'"><span class="search-item-name">${s[0]}</span><span class="search-item-desc">${s[1]}</span></div>`);
+    if(q.length>=2 && !m.some(s=>s[0]===q)){
+      items.push(`<div class="search-item" onclick="location='/stock.html?symbol=${encodeURIComponent(q)}'"><span class="search-item-name">${q}</span><span class="search-item-desc">→ Phân tích mã ${q}</span></div>`);
+    }
+    if(!items.length){sd.classList.remove('show');return;}
+    sd.innerHTML=items.join('');
+    sd.classList.add('show');
+  });
+  si.addEventListener('keydown',e=>{if(e.key==='Enter'){const s=si.value.trim().toUpperCase().replace(/[^A-Z0-9]/g,'');if(s)location=`/stock.html?symbol=${encodeURIComponent(s)}`;}});
+  document.addEventListener('click',e=>{if(!e.target.closest('.search-wrap'))sd.classList.remove('show');});
+}
+
+loadData();
+setInterval(loadData, 60000); // Reload every 1 min
+</script>
+
+<!-- Service Worker Registration -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW registration failed', err));
+    });
+  }
+</script>
+</body>
+</html>

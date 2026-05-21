@@ -1,0 +1,161 @@
+<!-- Chatbot FAB + Panel (include trước </body>) -->
+<button class="chat-fab" id="chatFab" onclick="toggleChat()" title="Hỏi AI về cổ phiếu">
+  <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+  <div class="chat-badge" id="chatBadge"></div>
+</button>
+
+<div class="chat-panel" id="chatPanel">
+  <div class="chat-header">
+    <div class="chat-avatar">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+    </div>
+    <div>
+      <div class="chat-title">StockBot AI</div>
+      <div class="chat-subtitle">● Đang hoạt động</div>
+    </div>
+    <button class="chat-close" onclick="toggleChat()">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+
+  <div class="chat-messages" id="chatMessages">
+    <div class="chat-msg bot">
+      <div class="chat-bubble">Xin chào! Tôi là <strong>StockBot</strong> 👋<br>Hỏi tôi bất kỳ điều gì về cổ phiếu Việt Nam nhé!</div>
+      <div class="chat-time">Vừa xong</div>
+    </div>
+  </div>
+
+  <div class="chat-suggestions" id="chatSuggestions">
+    <span class="chat-suggest" onclick="quickAnalyze('VNM')">📊 Phân tích VNM</span>
+    <span class="chat-suggest" onclick="quickAnalyze('HPG')">📊 Phân tích HPG</span>
+    <span class="chat-suggest" onclick="quickAnalyze('TCB')">📊 Phân tích TCB</span>
+    <span class="chat-suggest" onclick="quickAnalyze('FPT')">📊 Phân tích FPT</span>
+    <span class="chat-suggest" onclick="sendSuggestion(this)">Thị trường hôm nay thế nào?</span>
+    <span class="chat-suggest" onclick="sendSuggestion(this)">RSI là gì?</span>
+  </div>
+
+  <div class="chat-footer">
+    <button class="chat-analyze-btn" id="chatAnalyzeBtn" onclick="promptAnalyze()" title="Phân tích nhanh một mã">
+      <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    </button>
+    <input class="chat-input" id="chatInput" placeholder="Nhập mã (VNM) hoặc câu hỏi…"
+           onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}" />
+    <button class="chat-send" id="chatSendBtn" onclick="sendChat()">
+      <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+    </button>
+  </div>
+</div>
+
+<script>
+const API_CHAT = '/api/chat';
+let chatHistory = [];
+let chatOpen = false;
+
+function cleanSymbol(s) {
+  const v = String(s ?? '').trim().toUpperCase();
+  return /^[A-Z0-9]{2,10}$/.test(v) ? v : '';
+}
+
+function toggleChat() {
+  chatOpen = !chatOpen;
+  document.getElementById('chatPanel').classList.toggle('open', chatOpen);
+  document.getElementById('chatBadge').classList.remove('show');
+  if (chatOpen) document.getElementById('chatInput').focus();
+}
+
+function timeStr() {
+  return new Date().toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit'});
+}
+
+function escapeHtml(s) { return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function renderMarkdown(text) {
+  let s = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // Section headings: *📊 ...* on its own line
+  s = s.replace(/^\*([\u{1F300}-\u{1FFFF}⚡⚠️💡📊📈🎯🤖].*?)\*$/gmu,
+    '<div style="font-weight:700;color:var(--txt);margin:8px 0 3px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:2px">$1</div>');
+  // **double** then *single* bold
+  s = s.replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/\*([^*\n]+?)\*/g, '<strong>$1</strong>');
+  // Bullet points
+  s = s.replace(/^[ \t]*[•\-]\s+(.+)$/gm, '<li style="margin-left:14px;margin-bottom:2px">$1</li>');
+  // Line breaks
+  s = s.replace(/\n/g, '<br>');
+  return s;
+}
+
+function appendMsg(role, text) {
+  const msgs = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = `chat-msg ${role}`;
+  const body = role === 'bot' ? renderMarkdown(text) : escapeHtml(text).replace(/\n/g,'<br>');
+  div.innerHTML = `<div class="chat-bubble">${body}</div><div class="chat-time">${timeStr()}</div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+
+function showTyping() {
+  const msgs = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'chat-typing'; div.id = 'typingIndicator';
+  div.innerHTML = '<span></span><span></span><span></span>';
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function hideTyping() {
+  const el = document.getElementById('typingIndicator');
+  if (el) el.remove();
+}
+
+async function sendChat(rawMsg) {
+  const input = document.getElementById('chatInput');
+  const msg = (rawMsg || input.value).trim();
+  if (!msg) return;
+  input.value = '';
+  document.getElementById('chatSuggestions').style.display = 'none';
+  document.getElementById('chatSendBtn').disabled = true;
+
+  appendMsg('user', msg);
+  chatHistory.push({ role: 'user', content: msg });
+  showTyping();
+
+  try {
+    const res = await fetch(API_CHAT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: msg, history: chatHistory.slice(-8) })
+    });
+    const data = await res.json();
+    hideTyping();
+    const reply = data.reply || 'Xin lỗi, có lỗi xảy ra.';
+    appendMsg('bot', reply);
+    chatHistory.push({ role: 'bot', content: reply });
+  } catch (e) {
+    hideTyping();
+    appendMsg('bot', 'Không thể kết nối server. Kiểm tra backend đang chạy.');
+  }
+  document.getElementById('chatSendBtn').disabled = false;
+  input.focus();
+}
+
+function sendSuggestion(el) {
+  sendChat(el.textContent);
+}
+
+function quickAnalyze(sym) {
+  const safe = cleanSymbol(sym);
+  if (safe) sendChat(`Phân tích chi tiết mã ${safe}`);
+}
+
+function promptAnalyze() {
+  const sym = prompt('Nhập mã cổ phiếu cần phân tích (VD: VNM, HPG, TCB):');
+  if (sym && sym.trim()) quickAnalyze(sym);
+}
+
+// Show badge after 3s if chat is closed
+setTimeout(() => {
+  if (!chatOpen) document.getElementById('chatBadge').classList.add('show');
+}, 3000);
+</script>

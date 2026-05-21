@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Environment
+.env
+
+# yfinance cache
+backend/.yfinance_cache/
+
+# SQLite databases
+*.db
+
+# Logs
+uvicorn*.log
+*.out.log
+
+# Watchlist runtime data (migrated to SQLite)
+backend/watchlist_data.json
+backend/watchlist_data.json.tmp
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
+
+*.db-*
+cloudflared.exe

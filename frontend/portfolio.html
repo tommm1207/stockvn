@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="StockVN - Quản lý danh mục đầu tư cổ phiếu Việt Nam">
+  <title>Portfolio – StockVN</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <script src="/js/storage.js"></script>
+  <script src="/js/api.js"></script>
+
+  <!-- PWA & Mobile First -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <a href="/" class="logo">
+      <div class="logo-icon"><svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div>
+      <div><div class="logo-text">StockVN</div><div class="logo-sub">Portfolio</div></div>
+    </a>
+    <nav class="header-nav">
+      <a href="/" class="nav-link"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Dashboard</a>
+      <a href="/watchlist.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>Watchlist</a>
+      <a href="/portfolio.html" class="nav-link active"><svg viewBox="0 0 24 24"><path d="M21 12V7H5a2 2 0 010-4h14v4"/><path d="M3 5v14a2 2 0 002 2h16v-5"/><path d="M18 12a2 2 0 000 4h4v-4h-4z"/></svg>Portfolio</a>
+      <a href="/scanner.html" class="nav-link"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Scanner</a>
+    </nav>
+  </header>
+
+  <div class="main">
+    <!-- Summary Cards -->
+    <div id="portfolio-summary" class="market-ticker" style="margin-bottom:22px">
+      <div class="ticker-item"><div class="ticker-label">Tổng vốn</div><div class="ticker-value" id="total-cost">—</div></div>
+      <div class="ticker-item"><div class="ticker-label">Giá trị hiện tại</div><div class="ticker-value" id="total-value">—</div></div>
+      <div class="ticker-item"><div class="ticker-label">Lãi/Lỗ</div><div class="ticker-value" id="total-pnl">—</div><div class="ticker-change" id="total-pnl-pct"></div></div>
+    </div>
+
+    <!-- Add Trade Form -->
+    <div class="notes-panel" style="margin-bottom:18px">
+      <div class="notes-header">
+        <div class="notes-title">➕ Thêm giao dịch</div>
+      </div>
+      <div class="notes-form" style="grid-template-columns:100px 80px 100px 100px 100px 120px 1fr auto">
+        <input class="note-input" id="trade-symbol" placeholder="Mã CK" maxlength="10" style="text-transform:uppercase">
+        <select class="note-input" id="trade-side"><option value="BUY">MUA</option><option value="SELL">BÁN</option></select>
+        <input class="note-input" id="trade-qty" type="number" placeholder="SL" min="1" step="100">
+        <input class="note-input" id="trade-price" type="number" placeholder="Giá" min="100" step="100">
+        <input class="note-input" id="trade-fee" type="number" placeholder="Phí" min="0" value="0">
+        <input class="note-input note-date" id="trade-date" type="date">
+        <input class="note-input" id="trade-note" placeholder="Ghi chú (tùy chọn)">
+        <button class="note-add-btn" id="btn-add-trade" onclick="addTrade()">Thêm</button>
+      </div>
+    </div>
+
+    <!-- Holdings Table -->
+    <div class="section-header">
+      <div class="section-title"><svg viewBox="0 0 24 24"><path d="M21 12V7H5a2 2 0 010-4h14v4"/></svg>Danh mục nắm giữ</div>
+    </div>
+    <div id="holdings-container">
+      <div class="loading-overlay"><div class="spinner"></div><span>Đang tải...</span></div>
+    </div>
+
+    <!-- Trade History -->
+    <div class="section-header" style="margin-top:28px">
+      <div class="section-title"><svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>Lịch sử giao dịch</div>
+    </div>
+    <div id="trades-container">
+      <div class="loading-overlay"><div class="spinner"></div><span>Đang tải...</span></div>
+    </div>
+  </div>
+
+<script>
+const clientId = getClientId();
+document.getElementById('trade-date').value = new Date().toISOString().slice(0, 10);
+
+async function loadPortfolio() {
+  try {
+    const data = await API.get(`/api/portfolio/${clientId}`);
+    renderSummary(data);
+    renderHoldings(data.holdings || []);
+  } catch (e) {
+    showError('holdings-container', e.message);
+  }
+
+  try {
+    const data = await API.get(`/api/portfolio/${clientId}/trades`);
+    renderTrades(data.trades || []);
+  } catch (e) {
+    showError('trades-container', e.message);
+  }
+}
+
+function renderSummary(data) {
+  document.getElementById('total-cost').textContent = formatPrice(data.total_cost);
+  document.getElementById('total-value').textContent = formatPrice(data.total_value);
+  const pnl = data.total_pnl || 0;
+  const pnlPct = data.total_pnl_pct || 0;
+  const pnlEl = document.getElementById('total-pnl');
+  const pnlPctEl = document.getElementById('total-pnl-pct');
+  pnlEl.textContent = (pnl >= 0 ? '+' : '') + formatPrice(pnl);
+  pnlEl.style.color = pnl >= 0 ? 'var(--green)' : 'var(--red)';
+  const chg = formatChange(pnlPct);
+  pnlPctEl.textContent = chg.text;
+  pnlPctEl.className = 'ticker-change ' + chg.cls;
+}
+
+function renderHoldings(holdings) {
+  const c = document.getElementById('holdings-container');
+  if (!holdings.length) { showEmpty(c, 'Chưa có cổ phiếu nào. Thêm giao dịch mua để bắt đầu!'); return; }
+  let html = '<div class="watchlist-table">';
+  html += '<div class="wl-row header"><span>Mã</span><span>SL</span><span>Giá vốn TB</span><span>Giá hiện tại</span><span>Giá trị</span><span>L/L</span><span>Tỷ trọng</span></div>';
+  for (const h of holdings) {
+    const pnlCls = h.pnl >= 0 ? 'up' : 'down';
+    const chg = formatChange(h.pnl_pct);
+    html += `<div class="wl-row" style="grid-template-columns:80px 80px 100px 100px 110px 110px 80px;cursor:pointer" onclick="window.location='/stock.html?symbol=${esc(h.symbol)}'">
+      <span class="wl-symbol">${esc(h.symbol)}</span>
+      <span class="wl-price">${formatPrice(h.quantity)}</span>
+      <span class="wl-price">${formatPrice(h.avg_cost)}</span>
+      <span class="wl-price">${formatPrice(h.current_price)}</span>
+      <span class="wl-price">${formatPrice(h.market_value)}</span>
+      <span class="wl-price ${pnlCls}">${chg.text}</span>
+      <span class="wl-price">${h.weight}%</span>
+    </div>`;
+  }
+  html += '</div>';
+  c.innerHTML = html;
+}
+
+function renderTrades(trades) {
+  const c = document.getElementById('trades-container');
+  if (!trades.length) { showEmpty(c, 'Chưa có giao dịch nào.'); return; }
+  let html = '<div class="watchlist-table">';
+  html += '<div class="wl-row header" style="grid-template-columns:80px 60px 80px 90px 70px 90px 1fr 36px"><span>Ngày</span><span>L/B</span><span>Mã</span><span>SL</span><span>Giá</span><span>Phí</span><span>Ghi chú</span><span></span></div>';
+  for (const t of trades.reverse()) {
+    const sideColor = t.side === 'BUY' ? 'var(--green)' : 'var(--red)';
+    html += `<div class="wl-row" style="grid-template-columns:80px 60px 80px 90px 70px 90px 1fr 36px">
+      <span style="font-size:12px;font-family:'JetBrains Mono',monospace">${esc(t.trade_date)}</span>
+      <span style="color:${sideColor};font-weight:700;font-size:12px">${t.side === 'BUY' ? 'MUA' : 'BÁN'}</span>
+      <span class="wl-symbol" style="font-size:13px">${esc(t.symbol)}</span>
+      <span class="wl-price">${formatPrice(t.quantity)}</span>
+      <span class="wl-price">${formatPrice(t.price)}</span>
+      <span class="wl-price" style="color:var(--txt2)">${formatPrice(t.fee)}</span>
+      <span style="font-size:12px;color:var(--txt2);overflow:hidden;text-overflow:ellipsis">${esc(t.note || '')}</span>
+      <button class="btn-icon" onclick="deleteTrade(${t.id})" title="Xóa"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
+    </div>`;
+  }
+  html += '</div>';
+  c.innerHTML = html;
+}
+
+async function addTrade() {
+  const symbol = cleanSymbol(document.getElementById('trade-symbol').value);
+  const side = document.getElementById('trade-side').value;
+  const quantity = parseFloat(document.getElementById('trade-qty').value);
+  const price = parseFloat(document.getElementById('trade-price').value);
+  const fee = parseFloat(document.getElementById('trade-fee').value) || 0;
+  const trade_date = document.getElementById('trade-date').value;
+  const note = document.getElementById('trade-note').value;
+
+  if (!symbol || !quantity || !price) { showToast('Vui lòng nhập đầy đủ mã, SL, giá', 'error'); return; }
+
+  try {
+    await API.post(`/api/portfolio/${clientId}/trades`, { symbol, side, quantity, price, fee, trade_date, note });
+    showToast(`${side === 'BUY' ? 'Mua' : 'Bán'} ${symbol} thành công`, 'success');
+    document.getElementById('trade-symbol').value = '';
+    document.getElementById('trade-qty').value = '';
+    document.getElementById('trade-price').value = '';
+    document.getElementById('trade-note').value = '';
+    loadPortfolio();
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
+async function deleteTrade(tradeId) {
+  if (!confirm('Xóa giao dịch này?')) return;
+  try {
+    await API.delete(`/api/portfolio/${clientId}/trades/${tradeId}`);
+    showToast('Đã xóa giao dịch', 'success');
+    loadPortfolio();
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
+loadPortfolio();
+</script>
+
+<!-- Service Worker Registration -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').then(reg => {
+        console.log('SW registered!', reg);
+      }).catch(err => console.log('SW registration failed', err));
+    });
+  }
+</script>
+</body>
+</html>
