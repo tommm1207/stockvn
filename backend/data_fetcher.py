@@ -20,15 +20,12 @@ from functools import lru_cache
 from pathlib import Path
 
 import httpx
-import yfinance as yf
 import numpy as np
 import xml.etree.ElementTree as ET
 
 logger = logging.getLogger(__name__)
 
-YF_CACHE_DIR = Path(os.getenv("YFINANCE_CACHE_DIR", Path(__file__).parent / ".yfinance_cache"))
-YF_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-yf.set_tz_cache_location(str(YF_CACHE_DIR))
+
 
 DNSE_CHART = "https://services.entrade.com.vn/chart-api/v2/ohlcs/stock"
 DNSE_HEADERS = {
@@ -87,9 +84,6 @@ def _make_result(data, source: str = "unknown", cached: bool = False,
 
 
 # Map mã VN → Yahoo Finance ticker
-def vn_ticker(symbol: str) -> str:
-    """Chuyển mã CK VN sang Yahoo Finance ticker"""
-    return f"{symbol.upper()}.VN"
 
 INDEX_MAP = {
     "VNINDEX": "VNINDEX",
@@ -127,90 +121,62 @@ async def _fetch_dnse_index(index_symbol: str) -> dict:
                 logger.warning(f"DNSE index {index_symbol} error: {e}")
     return {"value": 0, "change": 0, "change_pct": 0}
 
-# ─── Historical Daily Data (yfinance) ────────────────────────────────────────
-
-def _fetch_yfinance_sync(ticker_str: str, period: str = "1y") -> list:
-    """Đồng bộ – lấy dữ liệu daily từ yfinance"""
-    try:
-        tk = yf.Ticker(ticker_str)
-        df = tk.history(period=period, auto_adjust=True)
-        if df.empty:
-            return []
-        df = df.dropna(subset=["Close"])
-        result = []
-        for idx, row in df.iterrows():
-            date_str = str(idx)[:10]
-            result.append({
-                "date": date_str,
-                "open": round(float(row["Open"]), 0),
-                "high": round(float(row["High"]), 0),
-                "low": round(float(row["Low"]), 0),
-                "close": round(float(row["Close"]), 0),
-                "volume": int(row["Volume"]),
-            })
-        return result
-    except Exception as e:
-        logger.error(f"yfinance error for {ticker_str}: {e}")
-        return []
+# ─── Historical Daily Data ────────────────────────────────────────
 
 async def get_historical_data(symbol: str, days: int = 300) -> list:
-    """Lấy dữ liệu OHLCV lịch sử từ VNDirect API (Nhanh & Chính xác nhất cho VN)"""
+    """Lấy dữ liệu OHLCV lịch sử từ DNSE và VNDirect"""
     symbol = symbol.upper()
-    cache_key = (symbol, int(days))
+    cache_key = f"hist_{symbol}_{days}"
     cached = await _get_cache(_historical_cache, cache_key)
     if cached is not None:
         return cached
 
-    now = int(time.time())
-    # Tính số ngày giao dịch thực tế (bỏ T7, CN), nên cần query nhiều ngày lịch hơn một chút
-    from_time = now - (days + int(days*0.5) + 10) * 86400
-    
-    url = f"https://dchart-api.vndirect.com.vn/dchart/history?resolution=D&symbol={symbol}&from={from_time}&to={now}"
+    url = "https://services.entrade.com.vn/chart-api/v2/ohlcs/stock"
+    end_time = int(time.time())
+    start_time = end_time - ((days + 10) * 86400)
+    params = {"symbol": symbol, "resolution": "1D", "from": start_time, "to": end_time}
     
     try:
-        async with httpx.AsyncClient(timeout=15) as client:
-            r = await client.get(url, headers={"User-Agent": "Mozilla/5.0"})
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(url, params=params, headers=DNSE_HEADERS)
             data = r.json()
+            if "t" not in data or not data["t"]:
+                return []
+                
+            results = []
+            for i in range(len(data["t"])):
+                dt_str = datetime.fromtimestamp(data["t"][i]).strftime("%Y-%m-%d")
+                results.append({"date": dt_str, "open": float(data["o"][i]), "high": float(data["h"][i]), "low": float(data["l"][i]), "close": float(data["c"][i]), "volume": int(data["v"][i])})
             
-            if data.get("s") == "ok":
-                t = data.get("t", [])
-                o = data.get("o", [])
-                h = data.get("h", [])
-                l = data.get("l", [])
-                c = data.get("c", [])
-                v = data.get("v", [])
+            # Trả về đúng số lượng nến yêu cầu
+            results = results[-days:] if len(results) > days else results
+            
+            # Cập nhật thêm dữ liệu Khối ngoại từ VNDirect cho các nến
+            try:
+                start_date_str = results[0]["date"]
+                vnd_url = f"https://finfo-api.vndirect.com.vn/v4/stock_prices?sort=date&q=code:{symbol}~date:gte:{start_date_str}"
+                vnd_r = await client.get(vnd_url)
+                vnd_data = vnd_r.json().get("data", [])
                 
-                result = []
-                for i in range(len(t)):
-                    result.append({
-                        "date": datetime.fromtimestamp(t[i]).strftime("%Y-%m-%d"),
-                        "open": round(float(o[i]), 2),
-                        "high": round(float(h[i]), 2),
-                        "low": round(float(l[i]), 2),
-                        "close": round(float(c[i]), 2),
-                        "volume": int(v[i]),
-                    })
+                # Map by date
+                vnd_map = {item["date"]: item for item in vnd_data}
                 
-                # Trả về đúng số lượng nến yêu cầu
-                result = result[-days:] if len(result) > days else result
-                await _set_cache(_historical_cache, cache_key, result, HISTORICAL_CACHE_TTL)
-                return result
-            else:
-                logger.warning(f"VNDirect trả về lỗi cho {symbol}: {data}")
+                for r in results:
+                    vnd_info = vnd_map.get(r["date"])
+                    if vnd_info:
+                        f_buy = vnd_info.get("fBuyVol", 0)
+                        f_sell = vnd_info.get("fSellVol", 0)
+                        r["foreign_buy"] = f_buy
+                        r["foreign_sell"] = f_sell
+                        r["foreign_net"] = f_buy - f_sell
+            except Exception:
+                pass
+
+            await _set_cache(_historical_cache, cache_key, results, HISTORICAL_CACHE_TTL)
+            return results
     except Exception as e:
-        logger.error(f"VNDirect API error for {symbol}: {e}")
-        
-    # Fallback to Yahoo Finance if VNDirect fails
-    ticker_str = vn_ticker(symbol)
-    period = "1y" if days <= 250 else "2y" if days <= 500 else "5y"
-    loop = asyncio.get_event_loop()
-    data = await loop.run_in_executor(None, _fetch_yfinance_sync, ticker_str, period)
-    if not data:
-        data = await loop.run_in_executor(None, _fetch_yfinance_sync, symbol, period)
-        
-    result = data[-days:] if len(data) > days else data
-    await _set_cache(_historical_cache, cache_key, result, HISTORICAL_CACHE_TTL)
-    return result
+        logger.error(f"Lỗi lấy dữ liệu lịch sử cho {symbol}: {e}")
+        return []
 
 # ─── Intraday Data (DNSE) ────────────────────────────────────────────────────
 
@@ -393,88 +359,40 @@ def translate_company_name(symbol: str, info: dict) -> str:
     return name
 
 def _fetch_fundamentals_sync(symbol: str) -> dict:
-    """Lấy chỉ số cơ bản từ yfinance (.info). Có fallback tự tính từ fast_info và BCTC."""
+    fallback_name = get_company_name_sync(symbol)
+    market_cap, pe, pb, eps, roe = 0, 0, 0, 0, 0
     try:
-        tk = yf.Ticker(vn_ticker(symbol))
-        info = {}
-        try:
-            info = tk.info or {}
-        except Exception as e:
-            logger.warning(f"info bị chặn cho {symbol}: {e}")
-            
-        fast = {}
-        try:
-            fast = tk.fast_info or {}
-        except Exception as e:
-            logger.warning(f"fast_info bị chặn cho {symbol}: {e}")
-
-        sec = info.get("sector")
-        ind = info.get("industry")
-        
-        market_cap = info.get("marketCap") or fast.get("marketCap")
-        shares = info.get("sharesOutstanding") or fast.get("shares")
-        high_52w = info.get("fiftyTwoWeekHigh") or fast.get("yearHigh")
-        low_52w = info.get("fiftyTwoWeekLow") or fast.get("yearLow")
-        avg_vol = info.get("averageVolume") or fast.get("tenDayAverageVolume")
-        last_price = fast.get("lastPrice") or info.get("currentPrice")
-        
-        pe_trailing = info.get("trailingPE")
-        eps_trailing = info.get("trailingEps")
-        pb = info.get("priceToBook")
-        book_value = info.get("bookValue")
-        roe = info.get("returnOnEquity")
-        debt_to_equity = info.get("debtToEquity")
-        
-        # Nếu thiếu các chỉ số cơ bản quan trọng, tự tính từ BCTC
-        if not pe_trailing or not roe or not pb:
-            try:
-                dfund = _fetch_deep_fundamentals_sync(symbol)
-                inc = dfund.get("income_statement", [])
-                bal = dfund.get("balance_sheet", [])
+        import requests
+        r = requests.get(f"https://finfo-api.vndirect.com.vn/v4/ratios?q=code:{symbol}", timeout=5)
+        if r.status_code == 200:
+            data = r.json().get("data", [])
+            if data:
+                item = data[0]
+                pe = item.get("pe", 0)
+                pb = item.get("pb", 0)
+                eps = item.get("eps", 0)
+                roe = item.get("roe", 0) / 100 if item.get("roe") else 0
                 
-                if len(inc) > 0 and shares and last_price:
-                    total_net_income = sum([q.get("net_income", 0) for q in inc])
-                    if total_net_income != 0:
-                        eps_trailing = eps_trailing or (total_net_income / shares)
-                        pe_trailing = pe_trailing or (last_price / eps_trailing)
-                        
-                if len(bal) > 0 and len(inc) > 0:
-                    latest_equity = bal[0].get("total_equity", 0)
-                    latest_debt = bal[0].get("total_liabilities", 0)
-                    if latest_equity > 0:
-                        book_value = book_value or (latest_equity / shares) if shares else book_value
-                        pb = pb or (last_price / book_value) if book_value else pb
-                        total_net_income = sum([q.get("net_income", 0) for q in inc])
-                        roe = roe or (total_net_income / latest_equity)
-                        debt_to_equity = debt_to_equity or (latest_debt / latest_equity * 100)
-            except Exception as e:
-                logger.error(f"Lỗi tính toán BCTC dự phòng cho {symbol}: {e}")
-
-        return {
-            "name": translate_company_name(symbol, info) if info.get("longName") else symbol,
-            "sector": SECTOR_VI.get(sec, sec) if sec else None,
-            "industry": INDUSTRY_VI.get(ind, ind) if ind else None,
-            "market_cap": market_cap,
-            "pe_trailing": pe_trailing,
-            "pe_forward": info.get("forwardPE"),
-            "pb": pb,
-            "eps_trailing": eps_trailing,
-            "book_value": book_value,
-            "dividend_yield": info.get("dividendYield"),
-            "beta": info.get("beta"),
-            "high_52w": high_52w,
-            "low_52w": low_52w,
-            "avg_volume": avg_vol,
-            "shares_outstanding": shares,
-            "enterprise_value": info.get("enterpriseValue"),
-            "roe": roe,
-            "profit_margin": info.get("profitMargins"),
-            "revenue_growth": info.get("revenueGrowth"),
-            "debt_to_equity": debt_to_equity,
-        }
+        r2 = requests.get(f"https://services.entrade.com.vn/chart-api/chart/symbol?symbol={symbol}", timeout=5)
+        if r2.status_code == 200:
+            mc = r2.json().get("marketCap", 0)
+            if mc: market_cap = mc
     except Exception as e:
-        logger.error(f"Lỗi fetch fundamentals cho {symbol}: {e}")
-        return {}
+        logger.warning(f"Error fetching fundamental stats for {symbol}: {e}")
+
+    return {
+        "name": fallback_name,
+        "sector": "Tài chính/BĐS/SX",
+        "industry": "Không xác định",
+        "market_cap": market_cap,
+        "shares_outstanding": 0,
+        "pe_ratio": pe,
+        "pb_ratio": pb,
+        "eps": eps,
+        "roe": roe,
+        "beta": 1.0,
+        "dividend_yield": 0
+    }
 
 
 async def get_fundamentals(symbol: str) -> dict:
@@ -483,65 +401,35 @@ async def get_fundamentals(symbol: str) -> dict:
     return await loop.run_in_executor(None, _fetch_fundamentals_sync, symbol)
 
 def _fetch_deep_fundamentals_sync(symbol: str) -> dict:
-    """Lấy dữ liệu BCTC chuyên sâu từ yfinance (theo Quý/Năm)."""
+    income_stmt = {}
+    balance_sheet = {}
     try:
-        tk = yf.Ticker(vn_ticker(symbol))
-        
-        # Lấy income_stmt (Báo cáo kết quả kinh doanh)
-        # Chúng ta ưu tiên lấy theo Quý (quarterly_income_stmt), fallback sang Năm
-        df_income = tk.quarterly_income_stmt
-        if df_income.empty:
-            df_income = tk.income_stmt
-            
-        df_balance = tk.quarterly_balance_sheet
-        if df_balance.empty:
-            df_balance = tk.balance_sheet
-            
-        result = {
-            "income_statement": [],
-            "balance_sheet": []
-        }
-        
-        # Parse Income Statement (chỉ lấy 4 kỳ gần nhất)
-        if not df_income.empty:
-            # df_income có columns là datetime, index là các khoản mục
-            cols = list(df_income.columns)[:4]
-            for col in cols:
-                period_data = df_income[col]
-                # Safely get values, handling NaN
-                revenue = period_data.get("Total Revenue")
-                gross_profit = period_data.get("Gross Profit")
-                operating_income = period_data.get("Operating Income")
-                net_income = period_data.get("Net Income")
-                
-                result["income_statement"].append({
-                    "date": col.strftime("%Y-%m-%d"),
-                    "revenue": float(revenue) if not np.isnan(revenue) else 0,
-                    "gross_profit": float(gross_profit) if not np.isnan(gross_profit) else 0,
-                    "operating_income": float(operating_income) if not np.isnan(operating_income) else 0,
-                    "net_income": float(net_income) if not np.isnan(net_income) else 0,
-                })
-                
-        # Parse Balance Sheet (chỉ lấy 4 kỳ gần nhất)
-        if not df_balance.empty:
-            cols = list(df_balance.columns)[:4]
-            for col in cols:
-                period_data = df_balance[col]
-                total_assets = period_data.get("Total Assets")
-                total_liabilities = period_data.get("Total Liabilities Net Minority Interest")
-                total_equity = period_data.get("Stockholders Equity")
-                
-                result["balance_sheet"].append({
-                    "date": col.strftime("%Y-%m-%d"),
-                    "total_assets": float(total_assets) if not np.isnan(total_assets) else 0,
-                    "total_liabilities": float(total_liabilities) if not np.isnan(total_liabilities) else 0,
-                    "total_equity": float(total_equity) if not np.isnan(total_equity) else 0,
-                })
-                
-        return result
+        import requests
+        url = f"https://finfo-api.vndirect.com.vn/v4/financial_statements?q=code:{symbol}~reportType:QUARTER&sort=-fiscalDate&size=4"
+        r = requests.get(url, timeout=5)
+        if r.status_code == 200:
+            data = r.json().get("data", [])
+            for item in data:
+                q = f"Q{item.get('fiscalQuarter')} {item.get('fiscalYear')}"
+                if "netRevenue" in item:
+                    income_stmt[q] = {
+                        "Revenue": item.get("netRevenue", 0),
+                        "Net Income": item.get("netIncome", 0)
+                    }
+                if "totalAssets" in item:
+                    balance_sheet[q] = {
+                        "Total Assets": item.get("totalAssets", 0),
+                        "Total Debt": item.get("shortTermDebt", 0) + item.get("longTermDebt", 0),
+                        "Total Equity": item.get("equity", 0)
+                    }
     except Exception as e:
-        logger.error(f"Deep Fundamentals error for {symbol}: {e}")
-        return {"income_statement": [], "balance_sheet": []}
+        logger.warning(f"Error fetching deep fundamentals: {e}")
+
+    return {
+        "income_statement": income_stmt,
+        "balance_sheet": balance_sheet,
+        "cash_flow": {}
+    }
 
 async def get_deep_fundamentals(symbol: str) -> dict:
     """Async wrapper cho deep fundamentals."""
@@ -695,27 +583,7 @@ async def get_current_quote(symbol: str) -> dict:
 # ─── Market Indices ───────────────────────────────────────────────────────────
 
 def _fetch_index_sync(yf_ticker: str) -> dict:
-    try:
-        tk = yf.Ticker(yf_ticker)
-        df = tk.history(period="5d", auto_adjust=True)
-        if df.empty or len(df) < 2:
-            return {}
-        last = df.iloc[-1]
-        prev = df.iloc[-2]
-        close = float(last["Close"])
-        prev_close = float(prev["Close"])
-        change = close - prev_close
-        change_pct = (change / prev_close * 100) if prev_close else 0
-        return {
-            "value": round(close, 2),
-            "change": round(change, 2),
-            "change_pct": round(change_pct, 2),
-            "volume": int(last["Volume"]),
-            "date": str(df.index[-1])[:10],
-        }
-    except Exception as e:
-        logger.error(f"Index fetch error for {yf_ticker}: {e}")
-        return {}
+    return {"value": 0, "change": 0, "change_pct": 0}
 
 async def get_market_overview() -> dict:
     """Tổng quan 3 chỉ số thị trường – dùng DNSE, có cache"""
@@ -754,7 +622,7 @@ POPULAR_STOCKS = [
 ]
 
 async def get_top_movers(n: int = 10) -> dict:
-    """Top tăng/giảm mạnh – dùng yfinance daily"""
+    """Top tăng/giảm mạnh – dùng DNSE daily"""
     cache_key = int(n)
     cached = await _get_cache(_top_movers_cache, cache_key)
     if cached is not None:

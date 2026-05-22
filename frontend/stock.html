@@ -19,7 +19,7 @@
 <body>
 
 <header class="header">
-    <a href="/" class="logo">
+    <a href="index.html" class="logo">
     <img src="/icons/icon.svg" style="width:34px;height:34px;border-radius:9px;box-shadow: 0 4px 12px rgba(0,0,0,0.5);" alt="Logo" />
     <div><div class="logo-text">StockVN</div><div class="logo-sub">Phân Tích Cổ Phiếu</div></div>
   </a>
@@ -29,7 +29,7 @@
     <div class="search-dropdown" id="searchDropdown"></div>
   </div>
   <nav class="header-nav">
-    <a href="/" class="nav-link">
+    <a href="index.html" class="nav-link">
       <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
       Tổng Quan
     </a>
@@ -43,7 +43,7 @@
     </a>
     <a href="/scanner.html" class="nav-link">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      Bộ Lọc
+      Scanner
     </a>
     <div class="clock" id="clock">--:--:--</div>
   </nav>
@@ -154,6 +154,12 @@
       <div class="fund-row"><span>Giá trị doanh nghiệp</span><span class="fund-val" id="f-ev">–</span></div>
       <div class="fund-row"><span>52T cao</span><span class="fund-val up" id="f-52h">–</span></div>
       <div class="fund-row"><span>52T thấp</span><span class="fund-val down" id="f-52l">–</span></div>
+    </div>
+    <div class="fund-card" id="foreign-card">
+      <div class="fund-title">🌍 Khối Ngoại (Phiên Gần Nhất)</div>
+      <div class="fund-row"><span>Mua vào</span><span class="fund-val up" id="f-fbuy">–</span></div>
+      <div class="fund-row"><span>Bán ra</span><span class="fund-val down" id="f-fsell">–</span></div>
+      <div class="fund-row"><span>Mua ròng</span><span class="fund-val" id="f-fnet">–</span></div>
     </div>
   </div>
 
@@ -578,10 +584,37 @@ function renderHeader(data, an) {
         Vào: <span style="color:var(--txt)">${fmtPrice(an.trade_plan.entry)}</span> | 
         Cắt: <span style="color:#ff4757">${fmtPrice(an.trade_plan.stop_loss)}</span> | 
         Mục tiêu: <span style="color:#00d68f">${fmtPrice(an.trade_plan.target)}</span>
-      </div>`;
-  }
-  
   document.getElementById('signalBadgeLarge').innerHTML = `<div style="display:flex;flex-direction:column;align-items:flex-end">${badgesHTML}</div>`;
+
+  // Technical Analysis
+  const tech = data.technical_analysis || {};
+  renderIndicators(tech);
+
+  // Render Foreign Trading from Historical Data
+  const hist = data.raw_data || [];
+  if (hist.length > 0) {
+    const lastHist = hist[hist.length - 1];
+    if (lastHist.foreign_buy !== undefined) {
+      document.getElementById('f-fbuy').textContent = lastHist.foreign_buy > 0 ? lastHist.foreign_buy.toLocaleString('vi-VN') : '0';
+      document.getElementById('f-fsell').textContent = lastHist.foreign_sell > 0 ? lastHist.foreign_sell.toLocaleString('vi-VN') : '0';
+      const fnet = lastHist.foreign_net;
+      const elNet = document.getElementById('f-fnet');
+      if (fnet > 0) {
+        elNet.textContent = '+' + fnet.toLocaleString('vi-VN');
+        elNet.className = 'fund-val up';
+      } else if (fnet < 0) {
+        elNet.textContent = fnet.toLocaleString('vi-VN');
+        elNet.className = 'fund-val down';
+      } else {
+        elNet.textContent = '0';
+        elNet.className = 'fund-val';
+      }
+    } else {
+      document.getElementById('foreign-card').style.display = 'none';
+    }
+  } else {
+    document.getElementById('foreign-card').style.display = 'none';
+  }
 
   // Quote stats (lấy từ raw_data – nến gần nhất + 20 phiên)
   const bars = data.raw_data || [];
