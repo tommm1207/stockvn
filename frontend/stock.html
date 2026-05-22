@@ -579,7 +579,7 @@ function renderHeader(data, an) {
   if (an.trade_plan && an.trade_plan.entry) {
       badgesHTML += `<div style="font-size:12px;color:var(--text-muted);margin-top:4px">
         Vào: <span style="color:var(--txt)">${fmtPrice(an.trade_plan.entry)}</span> | 
-        Cắt: <span style="color:#ff4757">${fmtPrice(an.trade_plan.stoploss)}</span> | 
+        Cắt: <span style="color:#ff4757">${fmtPrice(an.trade_plan.stop_loss)}</span> | 
         Mục tiêu: <span style="color:#00d68f">${fmtPrice(an.trade_plan.target)}</span>
       </div>`;
   }
