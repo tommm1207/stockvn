@@ -44,11 +44,13 @@ D:\stock-analyzer\
 └── run.bat                     # Script khởi chạy Windows
 ```
 
-## 🚀 Tính năng nổi bật gần đây (V2)
-1. **Wifeed & VNDirect API**: Thay thế Yahoo Finance, dữ liệu chính xác 100% cho thị trường VN, tốc độ realtime.
-2. **Full-Market Scanner**: Quét 1800+ mã cổ phiếu ngầm mỗi 15 phút, lưu vào RAM Cache. Lọc thanh khoản > 10.000 cổ/ngày.
-3. **Advanced Technical Analysis**: Tự động phát hiện dòng tiền Tích lũy, Đột biến, Phân phối, và cung cấp điểm Vào (Entry) / Cắt lỗ (Stoploss).
-4. **Mobile Optimization & PWA**: Cài đặt như app Native, vuốt mượt mà, không bị lag bảng grid.
+## 🚀 Tính năng nổi bật gần đây (V3)
+1. **DNSE & VNDirect & Wifeed API**: Thay thế hoàn toàn Yahoo Finance (`yfinance`), giải quyết triệt để lỗi timeout/404, cung cấp dữ liệu chính xác 100% cho thị trường VN, tốc độ realtime.
+2. **Theo Dõi Khối Ngoại**: Cập nhật chi tiết số lượng Mua/Bán/Mua ròng của khối ngoại ngay trên giao diện theo từng phiên.
+3. **Full-Market Scanner**: Quét 1800+ mã cổ phiếu ngầm mỗi 15 phút, lưu vào RAM Cache. Lọc thanh khoản > 10.000 cổ/ngày. Tối ưu phân trang và tốc độ hiển thị.
+4. **Auto-Update Local (run.bat)**: Tự động `git pull origin main` mỗi khi chạy server cục bộ, luôn đảm bảo phiên bản mới nhất cho người dùng.
+5. **Trợ Lý AI Nâng Cao**: Giải thích tự động tín hiệu kỹ thuật (Vì sao MUA/BÁN) bằng AI, hiển thị rõ ràng trên giao diện phân tích cổ phiếu.
+6. **Mobile Optimization & PWA**: Cài đặt như app Native, vuốt mượt mà, không bị lag bảng grid. Đồng bộ thanh điều hướng (Navigation) và Logo chuẩn xác.
 
 ## 🔑 Biến Môi Trường (.env)
 

@@ -47,6 +47,6 @@ Hệ thống được thiết kế hoàn hảo để đẩy lên **Render** (đ�
 
 ## 📚 Công nghệ sử dụng
 - **Backend:** Python (FastAPI), SQLite, AsyncIO.
-- **Data APIs:** VNDirect Data API, Wifeed API.
+- **Data APIs:** VNDirect Data API, Wifeed API, DNSE Entrade API (Loại bỏ hoàn toàn yfinance).
 - **Frontend:** Vanilla JS, CSS Variables, Lightweight Charts.
 - **AI:** Google Gemini Pro.
