@@ -358,26 +358,48 @@ def translate_company_name(symbol: str, info: dict) -> str:
         name = name.replace(k, v)
     return name
 
-def _fetch_fundamentals_sync(symbol: str) -> dict:
+def get_company_name_sync(symbol: str) -> str:
+    symbol = symbol.upper()
+    if symbol in COMPANY_NAMES_VI:
+        return COMPANY_NAMES_VI[symbol]
+    try:
+        from vn_symbols import VN_STOCKS
+        for s, name in VN_STOCKS:
+            if s == symbol:
+                return name
+    except Exception:
+        pass
+    return symbol
+
+
+async def get_fundamentals(symbol: str) -> dict:
     fallback_name = get_company_name_sync(symbol)
     market_cap, pe, pb, eps, roe = 0, 0, 0, 0, 0
     try:
-        import requests
         async with httpx.AsyncClient(timeout=2.0) as client:
-            r = await client.get(f"https://finfo-api.vndirect.com.vn/v4/ratios?q=code:{symbol}")
-        if r.status_code == 200:
-            data = r.json().get("data", [])
-            if data:
-                item = data[0]
-                pe = item.get("pe", 0)
-                pb = item.get("pb", 0)
-                eps = item.get("eps", 0)
-                roe = item.get("roe", 0) / 100 if item.get("roe") else 0
-                
-        r2 = requests.get(f"https://services.entrade.com.vn/chart-api/chart/symbol?symbol={symbol}", timeout=5)
-        if r2.status_code == 200:
-            mc = r2.json().get("marketCap", 0)
-            if mc: market_cap = mc
+            # 1. Fetch ratios from VNDirect
+            try:
+                r = await client.get(f"https://finfo-api.vndirect.com.vn/v4/ratios?q=code:{symbol}")
+                if r.status_code == 200:
+                    data = r.json().get("data", [])
+                    if data:
+                        item = data[0]
+                        pe = item.get("pe", 0)
+                        pb = item.get("pb", 0)
+                        eps = item.get("eps", 0)
+                        roe = item.get("roe", 0) / 100 if item.get("roe") else 0
+            except Exception as ex:
+                logger.warning(f"VNDirect ratios error for {symbol}: {ex}")
+
+            # 2. Fetch market cap from Entrade
+            try:
+                r2 = await client.get(f"https://services.entrade.com.vn/chart-api/chart/symbol?symbol={symbol}")
+                if r2.status_code == 200:
+                    mc = r2.json().get("marketCap", 0)
+                    if mc:
+                        market_cap = mc
+            except Exception as ex:
+                logger.warning(f"Entrade marketCap error for {symbol}: {ex}")
     except Exception as e:
         logger.warning(f"Error fetching fundamental stats for {symbol}: {e}")
 
@@ -396,47 +418,36 @@ def _fetch_fundamentals_sync(symbol: str) -> dict:
     }
 
 
-async def get_fundamentals(symbol: str) -> dict:
-    """Async wrapper – yfinance là sync nên chạy trong threadpool."""
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, _fetch_fundamentals_sync, symbol)
-
-def _fetch_deep_fundamentals_sync(symbol: str) -> dict:
+async def get_deep_fundamentals(symbol: str) -> dict:
     income_stmt = {}
     balance_sheet = {}
     try:
-        import requests
         url = f"https://finfo-api.vndirect.com.vn/v4/financial_statements?q=code:{symbol}~reportType:QUARTER&sort=-fiscalDate&size=4"
         async with httpx.AsyncClient(timeout=2.0) as client:
-        r = await client.get(url)
-        if r.status_code == 200:
-            data = r.json().get("data", [])
-            for item in data:
-                q = f"Q{item.get('fiscalQuarter')} {item.get('fiscalYear')}"
-                if "netRevenue" in item:
-                    income_stmt[q] = {
-                        "Revenue": item.get("netRevenue", 0),
-                        "Net Income": item.get("netIncome", 0)
-                    }
-                if "totalAssets" in item:
-                    balance_sheet[q] = {
-                        "Total Assets": item.get("totalAssets", 0),
-                        "Total Debt": item.get("shortTermDebt", 0) + item.get("longTermDebt", 0),
-                        "Total Equity": item.get("equity", 0)
-                    }
+            r = await client.get(url)
+            if r.status_code == 200:
+                data = r.json().get("data", [])
+                for item in data:
+                    q = f"Q{item.get('fiscalQuarter')} {item.get('fiscalYear')}"
+                    if "netRevenue" in item:
+                        income_stmt[q] = {
+                            "Revenue": item.get("netRevenue", 0),
+                            "Net Income": item.get("netIncome", 0)
+                        }
+                    if "totalAssets" in item:
+                        balance_sheet[q] = {
+                            "Total Assets": item.get("totalAssets", 0),
+                            "Total Debt": item.get("shortTermDebt", 0) + item.get("longTermDebt", 0),
+                            "Total Equity": item.get("equity", 0)
+                        }
     except Exception as e:
-        logger.warning(f"Error fetching deep fundamentals: {e}")
+        logger.warning(f"Error fetching deep fundamentals for {symbol}: {e}")
 
     return {
         "income_statement": income_stmt,
         "balance_sheet": balance_sheet,
         "cash_flow": {}
     }
-
-async def get_deep_fundamentals(symbol: str) -> dict:
-    """Async wrapper cho deep fundamentals."""
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, _fetch_deep_fundamentals_sync, symbol)
 
 
 
