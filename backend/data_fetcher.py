@@ -393,36 +393,87 @@ def translate_company_name(symbol: str, info: dict) -> str:
     return name
 
 def _fetch_fundamentals_sync(symbol: str) -> dict:
-    """Lấy chỉ số cơ bản từ yfinance (.info)."""
+    """Lấy chỉ số cơ bản từ yfinance (.info). Có fallback tự tính từ fast_info và BCTC."""
     try:
         tk = yf.Ticker(vn_ticker(symbol))
-        info = tk.info or {}
+        info = {}
+        try:
+            info = tk.info or {}
+        except Exception as e:
+            logger.warning(f"info bị chặn cho {symbol}: {e}")
+            
+        fast = {}
+        try:
+            fast = tk.fast_info or {}
+        except Exception as e:
+            logger.warning(f"fast_info bị chặn cho {symbol}: {e}")
+
         sec = info.get("sector")
         ind = info.get("industry")
+        
+        market_cap = info.get("marketCap") or fast.get("marketCap")
+        shares = info.get("sharesOutstanding") or fast.get("shares")
+        high_52w = info.get("fiftyTwoWeekHigh") or fast.get("yearHigh")
+        low_52w = info.get("fiftyTwoWeekLow") or fast.get("yearLow")
+        avg_vol = info.get("averageVolume") or fast.get("tenDayAverageVolume")
+        last_price = fast.get("lastPrice") or info.get("currentPrice")
+        
+        pe_trailing = info.get("trailingPE")
+        eps_trailing = info.get("trailingEps")
+        pb = info.get("priceToBook")
+        book_value = info.get("bookValue")
+        roe = info.get("returnOnEquity")
+        debt_to_equity = info.get("debtToEquity")
+        
+        # Nếu thiếu các chỉ số cơ bản quan trọng, tự tính từ BCTC
+        if not pe_trailing or not roe or not pb:
+            try:
+                dfund = _fetch_deep_fundamentals_sync(symbol)
+                inc = dfund.get("income_statement", [])
+                bal = dfund.get("balance_sheet", [])
+                
+                if len(inc) > 0 and shares and last_price:
+                    total_net_income = sum([q.get("net_income", 0) for q in inc])
+                    if total_net_income != 0:
+                        eps_trailing = eps_trailing or (total_net_income / shares)
+                        pe_trailing = pe_trailing or (last_price / eps_trailing)
+                        
+                if len(bal) > 0 and len(inc) > 0:
+                    latest_equity = bal[0].get("total_equity", 0)
+                    latest_debt = bal[0].get("total_liabilities", 0)
+                    if latest_equity > 0:
+                        book_value = book_value or (latest_equity / shares) if shares else book_value
+                        pb = pb or (last_price / book_value) if book_value else pb
+                        total_net_income = sum([q.get("net_income", 0) for q in inc])
+                        roe = roe or (total_net_income / latest_equity)
+                        debt_to_equity = debt_to_equity or (latest_debt / latest_equity * 100)
+            except Exception as e:
+                logger.error(f"Lỗi tính toán BCTC dự phòng cho {symbol}: {e}")
+
         return {
-            "name": translate_company_name(symbol, info),
+            "name": translate_company_name(symbol, info) if info.get("longName") else symbol,
             "sector": SECTOR_VI.get(sec, sec) if sec else None,
             "industry": INDUSTRY_VI.get(ind, ind) if ind else None,
-            "market_cap": info.get("marketCap"),
-            "pe_trailing": info.get("trailingPE"),
+            "market_cap": market_cap,
+            "pe_trailing": pe_trailing,
             "pe_forward": info.get("forwardPE"),
-            "pb": info.get("priceToBook"),
-            "eps_trailing": info.get("trailingEps"),
-            "book_value": info.get("bookValue"),
+            "pb": pb,
+            "eps_trailing": eps_trailing,
+            "book_value": book_value,
             "dividend_yield": info.get("dividendYield"),
             "beta": info.get("beta"),
-            "high_52w": info.get("fiftyTwoWeekHigh"),
-            "low_52w": info.get("fiftyTwoWeekLow"),
-            "avg_volume": info.get("averageVolume"),
-            "shares_outstanding": info.get("sharesOutstanding"),
+            "high_52w": high_52w,
+            "low_52w": low_52w,
+            "avg_volume": avg_vol,
+            "shares_outstanding": shares,
             "enterprise_value": info.get("enterpriseValue"),
-            "roe": info.get("returnOnEquity"),
+            "roe": roe,
             "profit_margin": info.get("profitMargins"),
             "revenue_growth": info.get("revenueGrowth"),
-            "debt_to_equity": info.get("debtToEquity"),
+            "debt_to_equity": debt_to_equity,
         }
     except Exception as e:
-        logger.error(f"Fundamentals error for {symbol}: {e}")
+        logger.error(f"Lỗi fetch fundamentals cho {symbol}: {e}")
         return {}
 
 
