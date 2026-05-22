@@ -567,7 +567,24 @@ function renderHeader(data, an) {
   const rec = an.recommendation;
   const cls = { BUY: 'buy', SELL: 'sell', HOLD: 'hold' }[rec];
   const lbl = { BUY: '🟢 NÊN MUA', SELL: '🔴 KHÔNG MUA', HOLD: '🟡 CÂN NHẮC' }[rec];
-  document.getElementById('signalBadgeLarge').innerHTML = `<div class="signal-badge ${cls}" style="font-size:13px;padding:7px 14px">${lbl}</div>`;
+  
+  let badgesHTML = `<div class="signal-badge ${cls}" style="font-size:13px;padding:7px 14px;margin-bottom:4px">${lbl}</div>`;
+  
+  if (an.advanced_signals && an.advanced_signals.length > 0) {
+      an.advanced_signals.forEach(s => {
+          badgesHTML += `<div class="signal-badge" style="font-size:12px;padding:5px 10px;background:rgba(61, 155, 255, 0.1);color:#3d9bff;margin-bottom:4px;border:1px solid rgba(61,155,255,0.2)">${s.emoji} ${s.name}</div>`;
+      });
+  }
+  
+  if (an.trade_plan && an.trade_plan.entry) {
+      badgesHTML += `<div style="font-size:12px;color:var(--text-muted);margin-top:4px">
+        Vào: <span style="color:var(--txt)">${fmtPrice(an.trade_plan.entry)}</span> | 
+        Cắt: <span style="color:#ff4757">${fmtPrice(an.trade_plan.stoploss)}</span> | 
+        Mục tiêu: <span style="color:#00d68f">${fmtPrice(an.trade_plan.target)}</span>
+      </div>`;
+  }
+  
+  document.getElementById('signalBadgeLarge').innerHTML = `<div style="display:flex;flex-direction:column;align-items:flex-end">${badgesHTML}</div>`;
 
   // Quote stats (lấy từ raw_data – nến gần nhất + 20 phiên)
   const bars = data.raw_data || [];

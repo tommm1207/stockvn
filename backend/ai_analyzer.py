@@ -274,6 +274,16 @@ async def analyze_with_ai(symbol: str, analysis: dict, raw_data: list = None) ->
 
     signal_notes = "\n".join([f"  • {s.get('note', '')}" for s in signals])
 
+    advanced = analysis.get("advanced_signals", [])
+    adv_text = ""
+    if advanced:
+        adv_text = "\nCÁC TÍN HIỆU ĐẶC BIỆT TỪ SCANNER:\n" + "\n".join([f"  • {s.get('emoji', '')} {s.get('name', '')}: {s.get('note', '')}" for s in advanced])
+    
+    tp = analysis.get("trade_plan", {})
+    tp_text = ""
+    if tp and tp.get("entry"):
+        tp_text = f"\nKẾ HOẠCH GIAO DỊCH GỢI Ý:\n  • Vùng Mua (Entry): {tp.get('entry', 0):,.0f}\n  • Cắt Lỗ (Stoploss): {tp.get('stoploss', 0):,.0f}\n  • Chốt Lời (Target): {tp.get('target', 0):,.0f}\n"
+
     extra = ""
     if raw_data and len(raw_data) >= 6:
         last = raw_data[-1]
@@ -305,10 +315,12 @@ CHỈ BÁO:
 
 TÍN HIỆU CHI TIẾT:
 {signal_notes}
-
+{adv_text}
+{tp_text}
 KHUYẾN NGHỊ HỆ THỐNG: {analysis.get('emoji', '')} {analysis.get('recommendation_vn', '')} (điểm {analysis.get('score', 0)}/8)
 
-VIẾT PHÂN TÍCH CHI TIẾT THEO 6 PHẦN SAU – mỗi phần 2-3 câu, dùng số liệu THỰC TẾ ở trên, KHÔNG bịa số:
+VIẾT PHÂN TÍCH CHI TIẾT THEO 6 PHẦN SAU – mỗi phần 2-3 câu, dùng số liệu THỰC TẾ ở trên, KHÔNG bịa số.
+Đặc biệt phần "Gợi ý hành động", phải GIẢI THÍCH RÕ tại sao mã này lại có tín hiệu đặc biệt đó (nếu có) và nhận xét tính hợp lý của Kế Hoạch Giao Dịch:
 
 *📊 Tổng quan*
 [Giá hiện tại, biến động ngắn/trung hạn]
