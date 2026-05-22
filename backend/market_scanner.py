@@ -76,7 +76,7 @@ async def run_full_market_scan():
         symbols = await get_all_symbols()
         
         # Chia batch để không bị sập kết nối và nghẽn CPU (Render Free)
-        batch_size = 15
+        batch_size = 50
         all_results = []
         
         for i in range(0, len(symbols), batch_size):
@@ -89,7 +89,7 @@ async def run_full_market_scan():
                     all_results.append(res)
             
             # Delay nhẹ giữa các batch để tránh quá tải CPU/API và nhường event loop
-            await asyncio.sleep(1.5)
+            await asyncio.sleep(1.0)
             
         # Tổng hợp dữ liệu
         summary = {"BUY": 0, "SELL": 0, "HOLD": 0}
