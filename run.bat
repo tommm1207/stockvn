@@ -7,10 +7,7 @@ echo.
 REM Di chuyen den thu muc backend bat ke current directory
 cd /d "%~dp0backend"
 
-echo [1/4] Cap nhat ban moi nhat tu Github...
-git pull origin main
-
-echo [2/4] Kiem tra Python...
+echo [1/3] Kiem tra Python...
 python --version >nul 2>&1
 if errorlevel 1 (
   echo LOI: Python chua duoc cai dat.
@@ -19,7 +16,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [3/4] Kiem tra dependencies...
+echo [2/3] Kiem tra dependencies...
 python -c "import fastapi, uvicorn, httpx, pandas, numpy" >nul 2>&1
 if errorlevel 1 (
   echo Cai dat dependencies...
@@ -33,7 +30,7 @@ if errorlevel 1 (
   )
 )
 
-echo [4/4] Khoi dong backend...
+echo [3/3] Khoi dong backend...
 echo.
 echo ============================================
 echo   Dashboard: http://localhost:8000
