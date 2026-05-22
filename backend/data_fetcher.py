@@ -155,7 +155,7 @@ async def get_historical_data(symbol: str, days: int = 300) -> list:
             try:
                 start_date_str = results[0]["date"]
                 vnd_url = f"https://finfo-api.vndirect.com.vn/v4/stock_prices?sort=date&q=code:{symbol}~date:gte:{start_date_str}"
-                vnd_r = await client.get(vnd_url)
+                vnd_r = await client.get(vnd_url, timeout=2.0)
                 vnd_data = vnd_r.json().get("data", [])
                 
                 # Map by date
@@ -363,7 +363,8 @@ def _fetch_fundamentals_sync(symbol: str) -> dict:
     market_cap, pe, pb, eps, roe = 0, 0, 0, 0, 0
     try:
         import requests
-        r = requests.get(f"https://finfo-api.vndirect.com.vn/v4/ratios?q=code:{symbol}", timeout=5)
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            r = await client.get(f"https://finfo-api.vndirect.com.vn/v4/ratios?q=code:{symbol}")
         if r.status_code == 200:
             data = r.json().get("data", [])
             if data:
@@ -406,7 +407,8 @@ def _fetch_deep_fundamentals_sync(symbol: str) -> dict:
     try:
         import requests
         url = f"https://finfo-api.vndirect.com.vn/v4/financial_statements?q=code:{symbol}~reportType:QUARTER&sort=-fiscalDate&size=4"
-        r = requests.get(url, timeout=5)
+        async with httpx.AsyncClient(timeout=2.0) as client:
+        r = await client.get(url)
         if r.status_code == 200:
             data = r.json().get("data", [])
             for item in data:
